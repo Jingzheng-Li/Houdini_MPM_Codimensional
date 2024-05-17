@@ -9,7 +9,7 @@
 
 #include "VolumeFractions.h"
 
-#include "MathUtilities.h"
+#include "Utils/MathUtilities.h"
 
 // Assumes phi0<0 and phi1>=0, phi2>=0, or vice versa.
 // In particular, phi0 must not equal either of phi1 or phi2.

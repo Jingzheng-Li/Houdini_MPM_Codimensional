@@ -11,7 +11,7 @@
 
 #include <iostream>
 
-#include "../../ThreadUtils.h"
+#include "../../Utils/ThreadUtils.h"
 
 ShellMembraneForce::~ShellMembraneForce() {}
 

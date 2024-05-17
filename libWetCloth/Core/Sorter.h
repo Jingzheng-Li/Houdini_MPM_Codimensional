@@ -10,9 +10,9 @@
 
 #include <vector>
 
-#include "MathDefs.h"
-#include "MathUtilities.h"
-#include "ThreadUtils.h"
+#include "Utils/MathDefs.h"
+#include "Utils/MathUtilities.h"
+#include "Utils/ThreadUtils.h"
 
 #ifndef SORTER_H
 #define SORTER_H

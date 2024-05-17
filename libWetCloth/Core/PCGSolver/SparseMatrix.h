@@ -14,7 +14,7 @@
 #include <iostream>
 #include <vector>
 #include <tbb/tbb.h>
-#include "../MathUtilities.h"
+#include "../Utils/MathUtilities.h"
 
 using namespace mathutils;
 

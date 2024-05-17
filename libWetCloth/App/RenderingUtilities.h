@@ -29,10 +29,10 @@
 #include <iostream>
 #include <list>
 
-#include "JET.h"
-#include "MathDefs.h"
-#include "MathUtilities.h"
-#include "StringUtilities.h"
+#include "Utils/JET.h"
+#include "Utils/MathDefs.h"
+#include "Utils/MathUtilities.h"
+#include "Utils/StringUtilities.h"
 
 namespace renderingutils {
 // False => error

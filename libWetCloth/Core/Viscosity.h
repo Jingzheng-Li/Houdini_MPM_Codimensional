@@ -13,8 +13,8 @@
 
 #include <Eigen/Core>
 
-#include "MathDefs.h"
-#include "Array3.h"
+#include "Utils/MathDefs.h"
+#include "PCGSolver/Array3.h"
 #include "PCGSolver/SparseMatrix.h"
 
 class TwoDScene;

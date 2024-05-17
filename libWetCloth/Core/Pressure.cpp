@@ -12,9 +12,9 @@
 
 #include <numeric>
 
-#include "AlgebraicMultigrid.h"
-#include "MathUtilities.h"
-#include "ThreadUtils.h"
+#include "PCGSolver/AlgebraicMultigrid.h"
+#include "Utils/MathUtilities.h"
+#include "Utils/ThreadUtils.h"
 #include "TwoDScene.h"
 
 const scalar theta_criterion = 0.01;

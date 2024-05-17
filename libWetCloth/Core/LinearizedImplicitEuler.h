@@ -13,10 +13,10 @@
 #include <Eigen/Core>
 #include <iostream>
 
-#include "MathUtilities.h"
+#include "Utils/MathUtilities.h"
 #include "SceneStepper.h"
-#include "StringUtilities.h"
-#include "Array3.h"
+#include "Utils/StringUtilities.h"
+#include "PCGSolver/Array3.h"
 #include "PCGSolver/SparseMatrix.h"
 
 class LinearizedImplicitEuler : public SceneStepper {

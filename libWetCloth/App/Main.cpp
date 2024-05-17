@@ -31,10 +31,10 @@
 #endif
 
 #include "Camera.h"
-#include "Force.h"
-#include "MathDefs.h"
-#include "StringUtilities.h"
-#include "TimingUtilities.h"
+#include "SolidForce/Force.h"
+#include "Utils/MathDefs.h"
+#include "Utils/StringUtilities.h"
+#include "Utils/TimingUtilities.h"
 #include "TwoDScene.h"
 #include "TwoDSceneSerializer.h"
 #include "TwoDSceneXMLParser.h"

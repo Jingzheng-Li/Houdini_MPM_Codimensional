@@ -12,7 +12,7 @@
 #define CAMERA_H
 #include <Eigen/Dense>
 
-#include "MathDefs.h"
+#include "Utils/MathDefs.h"
 
 class Camera {
  public:

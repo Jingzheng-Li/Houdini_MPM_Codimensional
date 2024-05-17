@@ -16,9 +16,9 @@
 #include <fstream>
 
 #include "ElasticParameters.h"
-#include "DistanceFields.h"
-#include "Force.h"
-#include "Script.h"
+#include "Utils/DistanceFields.h"
+#include "SolidForce/Force.h"
+#include "Utils/Script.h"
 #include "Sorter.h"
 
 class StrandForce;

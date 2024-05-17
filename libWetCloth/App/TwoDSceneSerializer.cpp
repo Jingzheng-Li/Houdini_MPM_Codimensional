@@ -16,7 +16,7 @@
 #include <iomanip>
 #include <numeric>
 
-#include "AttachForce.h"
+#include "SolidForce/AttachForce.h"
 
 const int num_cloth_edge_discretization = 6;
 

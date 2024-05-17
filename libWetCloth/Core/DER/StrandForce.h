@@ -15,7 +15,7 @@
 #include <unordered_set>
 
 #include "../ElasticParameters.h"
-#include "../Force.h"
+#include "../SolidForce/Force.h"
 #include "../TwoDScene.h"
 #include "Definitions.h"
 #include "Dependencies/BendingProducts.h"

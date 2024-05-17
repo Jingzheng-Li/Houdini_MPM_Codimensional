@@ -10,8 +10,8 @@
 
 #include "ParticleSimulation.h"
 
-#include "MemUtilities.h"
-#include "TimingUtilities.h"
+#include "Utils/MemUtilities.h"
+#include "Utils/TimingUtilities.h"
 
 #ifdef RENDER_ENABLED
 #include <AntTweakBar.h>

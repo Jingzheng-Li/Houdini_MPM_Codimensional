@@ -14,7 +14,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "StringUtilities.h"
+#include "Utils/StringUtilities.h"
 #include "TwoDScene.h"
 
 struct SerializePosPacket {

@@ -13,7 +13,7 @@
 #include <fstream>
 #include <string>
 
-#include "MathDefs.h"
+#include "Utils/MathDefs.h"
 
 void TwoDSceneXMLParser::loadExecutableSimulation(
     const std::string& file_name, bool rendering_enabled,

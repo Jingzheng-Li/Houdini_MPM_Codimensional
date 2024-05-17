@@ -13,7 +13,7 @@
 #include <functional>
 #include <stack>
 
-#include "MathDefs.h"
+#include "Utils/MathDefs.h"
 #include "TwoDScene.h"
 
 class SceneStepper {

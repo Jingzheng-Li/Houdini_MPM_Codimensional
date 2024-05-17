@@ -11,9 +11,9 @@
 
 #include "TwoDSceneRenderer.h"
 
-#include "AttachForce.h"
-#include "DistanceFields.h"
-#include "MathUtilities.h"
+#include "SolidForce/AttachForce.h"
+#include "Utils/DistanceFields.h"
+#include "Utils/MathUtilities.h"
 #include "TwoDimensionalDisplayController.h"
 
 const Vector3s vertex_color =

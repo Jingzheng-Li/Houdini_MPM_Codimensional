@@ -14,7 +14,7 @@
 #include <Eigen/StdVector>
 #include <iostream>
 
-#include "MathUtilities.h"
+#include "Utils/MathUtilities.h"
 #include "RenderingUtilities.h"
 #include "TwoDScene.h"
 

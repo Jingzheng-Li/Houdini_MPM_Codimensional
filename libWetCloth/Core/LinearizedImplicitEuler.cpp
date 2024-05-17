@@ -12,12 +12,12 @@
 
 #include <unordered_map>
 
-#include "AlgebraicMultigrid.h"
-#include "MathUtilities.h"
+#include "PCGSolver/AlgebraicMultigrid.h"
+#include "PCGSolver/Array3Utils.h"
+#include "Utils/MathUtilities.h"
+#include "Utils/ThreadUtils.h"
 #include "Pressure.h"
-#include "ThreadUtils.h"
 #include "Viscosity.h"
-#include "Array3Utils.h"
 #include "Sorter.h"
 
 //#define OPTIMIZE_SAT

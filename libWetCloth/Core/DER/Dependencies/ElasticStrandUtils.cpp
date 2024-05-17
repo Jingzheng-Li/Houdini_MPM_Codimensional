@@ -11,7 +11,7 @@
 #include <cmath>
 #include <numeric>
 
-#include "../../TimingUtilities.h"
+#include "../../Utils/TimingUtilities.h"
 
 Vec3 parallelTransport(const Vec3& u, const Vec3& t0, const Vec3& t1) {
   // Compute rotation axis (if any)

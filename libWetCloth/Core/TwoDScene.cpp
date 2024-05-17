@@ -17,11 +17,11 @@
 #include <numeric>
 #include <stack>
 
-#include "AttachForce.h"
+#include "SolidForce/AttachForce.h"
 #include "DER/StrandForce.h"
-#include "MathUtilities.h"
-#include "ThreadUtils.h"
-#include "SpherePattern.h"
+#include "Utils/MathUtilities.h"
+#include "Utils/ThreadUtils.h"
+#include "Utils/SpherePattern.h"
 #include "VolumeFractions.h"
 
 /*!

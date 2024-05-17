@@ -12,8 +12,8 @@
 
 #include <Eigen/Core>
 
-#include "../../Force.h"
-#include "../../MathDefs.h"
+#include "../../SolidForce/Force.h"
+#include "../../Utils/MathDefs.h"
 
 class ShellMembraneForce : public Force {
  protected:

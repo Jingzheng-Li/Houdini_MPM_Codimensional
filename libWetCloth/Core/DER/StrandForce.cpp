@@ -9,7 +9,7 @@
 
 #include "StrandForce.h"
 
-#include "../ThreadUtils.h"
+#include "../Utils/ThreadUtils.h"
 #include "Dependencies/BendingProducts.h"
 #include "Forces/BendingForce.h"
 #include "Forces/ForceAccumulator.h"
