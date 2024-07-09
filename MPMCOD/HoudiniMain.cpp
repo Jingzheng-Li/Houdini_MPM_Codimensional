@@ -1,11 +1,13 @@
 
-// TODO: 1 指针好像有点问题 几个智能指针
-// 2. group怎么使用的
 
 
 #include "HoudiniMain.h"
 #include <unordered_set>
 
+
+// TODO: 1 指针好像有点问题 几个智能指针
+// 2. group怎么使用的
+// TODO: get vdb
 
 const SIM_DopDescription* GAS_MPM_CODIMENSIONAL::getDopDescription() {
 	static PRM_Template templateList[] = {
@@ -41,6 +43,9 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 		m_manager = std::make_shared<SIMManager>();
 	}
 
+	//////////////////////////////////
+	// read geometry from Houdini
+	//////////////////////////////////
 	const SIM_Geometry *geo = object->getGeometry();
 	CHECK_ERROR_SOLVER(geo != NULL, "Failed to get readBuffer geometry object")
 	GU_DetailHandleAutoReadLock readlock(geo->getGeometry());
@@ -58,46 +63,45 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	transferFaceAttribTOEigen(geo, gdp);
 
 	m_manager->initGaussSystem();
-	// m_manager->updateParticleBoundingBox();
-	// m_manager->rebucketizeParticles();
-	// m_manager->resampleNodes();
-	// m_manager->computeWeights(0.0);
-	// m_manager->updatePlasticity(0.0);
-	// m_manager->computedEdFe();
+	m_manager->updateParticleBoundingBox();
+	m_manager->rebucketizeParticles();
+	m_manager->resampleNodes();
+	m_manager->computeWeights(0.0);
+	m_manager->updatePlasticity(0.0);
+	m_manager->computedEdFe();
 	
-	// m_manager->updateSolidPhi(); // TODO: change inside
-	// m_manager->updateSolidWeights(); // TODO: may be useless(this is for fluidsolid)
-	// m_manager->mapParticleNodesAPIC();
-	// m_manager->saveParticleVelocity();
+	m_manager->updateSolidPhi(); // TODO: change inside
+	m_manager->updateSolidWeights(); // TODO: may be useless(this is for fluidsolid)
+	m_manager->mapParticleNodesAPIC();
+	m_manager->saveParticleVelocity();
 
-	// m_manager->loadAttachForces();
-	// m_manager->insertForce(std::make_shared<JunctionForce>(m_manager));
-	// m_manager->insertForce(std::make_shared<LevelSetForce>(
-	//     m_manager, m_manager->getCellSize() * 0.25));
-	
-	// SIM_ConstDataArray gravities;
-	// object->filterConstSubData(gravities, 0, SIM_DataFilterByType("SIM_ForceGravity"), SIM_FORCES_DATANAME, SIM_DataFilterNone());
+	m_manager->loadAttachForces();
+	m_manager->insertForce(std::make_shared<JunctionForce>(m_manager));
+	m_manager->insertForce(std::make_shared<LevelSetForce>(
+	    m_manager, m_manager->getCellSize() * 0.25));
 
-	// UT_Vector3 totalGravity(0, 0, 0);
-	// std::cout << "gravitentry~~~~~~~~~" << gravities.entries() << std::endl;
-	// for (exint i = 0; i < gravities.entries(); ++i) {
-	//     const SIM_ForceGravity* force = SIM_DATA_CASTCONST(gravities(i), SIM_ForceGravity);
-	//     if (force == NULL) continue;
-
-	//     UT_Vector3 outForce, outTorque;
-	//     force->getForce(*object, UT_Vector3(), UT_Vector3(), UT_Vector3(), 1.0f, outForce, outTorque);
-
-	//     totalGravity += outForce;
-	// }
-
-	// // 将重力向量从米转换为厘米
-	// totalGravity *= 100.0f;
-
-	// // 打印重力向量（可选）
-	// std::cout << "Total Gravity: " << totalGravity << std::endl;
+	loadGravity(object, gdp);
 
 
 
+
+	///////////////////////////////////////////
+	// MPM simulation
+	///////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+	///////////////////////////////////////////
+	// write geometry back to Houdini
+	///////////////////////////////////////////
 	SIM_GeometryCopy *newgeo = SIM_DATA_CREATE(*object, "Geometry", SIM_GeometryCopy, SIM_DATA_RETURN_EXISTING | SIM_DATA_ADOPT_EXISTING_ON_DELETE);
 	CHECK_ERROR_SOLVER(newgeo != NULL, "Failed to create writeBuffer GeometryCopy object");
 	GU_DetailHandleAutoWriteLock writelock(newgeo->getOwnGeometry());
@@ -105,7 +109,7 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	GU_Detail *newgdp = writelock.getGdp();
 	CHECK_ERROR_SOLVER(!newgdp->isEmpty(), "writeBuffer Geometry is empty");
 
-	transferPTAttribTOHoudini(geo, newgdp);
+	transferPointAttribTOHoudini(newgeo, newgdp);
 
 	return true;
 }
@@ -217,8 +221,6 @@ void GAS_MPM_CODIMENSIONAL::transferPointAttribTOEigen(const SIM_Geometry *geo, 
 
 }
 
-
-
 void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp) {
 
 	int numfaces = gdp->getNumPrimitives();
@@ -242,15 +244,14 @@ void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, c
 
 	int paramsIndex = 0;
 	std::unordered_set<int> unique_particles;
-	const int num_newfaces = faces.size();
-	m_manager->conservativeResizeFaces(numfaces + num_newfaces);
+	m_manager->conservativeResizeFaces(numfaces);
 
-	for (int i = 0; i < num_newfaces; ++i) {
-		m_manager->setFace(i + numfaces, faces[i]);
+	for (int i = 0; i < numfaces; ++i) {
+		m_manager->setFace(i, faces[i]);
 		Vector3s dx0 = m_manager->getPosition(faces[i](1)) - m_manager->getPosition(faces[i](0));
 		Vector3s dx1 = m_manager->getPosition(faces[i](2)) - m_manager->getPosition(faces[i](0));
-		m_manager->setFaceRestArea(i + numfaces, (dx0.cross(dx1)).norm() * 0.5);
-		m_manager->setFaceToParameter(i + numfaces, paramsIndex);
+		m_manager->setFaceRestArea(i, (dx0.cross(dx1)).norm() * 0.5);
+		m_manager->setFaceToParameter(i, paramsIndex);
 
 		unique_particles.insert(faces[i](0));
 		unique_particles.insert(faces[i](1));
@@ -277,10 +278,28 @@ void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, c
 	}
 }
 
-
-
-
 void GAS_MPM_CODIMENSIONAL::transferDTAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp) {}
+
+
+void GAS_MPM_CODIMENSIONAL::loadGravity(SIM_Object* object, const GU_Detail *gdp) {
+	SIM_ConstDataArray gravities;
+	object->filterConstSubData(gravities, 0, SIM_DataFilterByType("SIM_ForceGravity"), SIM_FORCES_DATANAME, SIM_DataFilterNone());
+	const SIM_ForceGravity* force = SIM_DATA_CASTCONST(gravities(0), SIM_ForceGravity);
+	CHECK_ERROR(force != nullptr, "Failed to get gravity force");
+	UT_Vector3 GravityForce, GravityTorque;
+	force->getForce(*object, UT_Vector3(), UT_Vector3(), UT_Vector3(), 1.0f, GravityForce, GravityTorque);
+	GravityForce *= 100.0f;
+
+}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -291,11 +310,29 @@ void GAS_MPM_CODIMENSIONAL::transferDTAttribTOEigen(const SIM_Geometry *geo, con
 /////////////////////////////////////////
 // tranfer Data from Eigen to Houdini
 /////////////////////////////////////////
-void GAS_MPM_CODIMENSIONAL::transferPTAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp) {
-	
+void GAS_MPM_CODIMENSIONAL::transferPointAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp) {
+    int numParticles = gdp->getNumPoints();
+    CHECK_ERROR(m_manager->getNumParticles() == numParticles, "Number of particles in geometry and MPM system do not match");
 
+    Eigen::VectorXd position = m_manager->getX();
+    Eigen::VectorXd velocity = m_manager->getV();
+
+    GA_RWHandleV3 velHandle(gdp, GA_ATTRIB_POINT, "v");
+    CHECK_ERROR(velHandle.isValid(), "Failed to get velocity attribute handle");
+
+    GA_Offset ptoff;
+    int idx = 0;
+    GA_FOR_ALL_PTOFF(gdp, ptoff) {
+        if (idx >= numParticles) break;
+        UT_Vector3 pos(position(4 * idx) / 100.0, position(4 * idx + 1) / 100.0, position(4 * idx + 2) / 100.0);
+        UT_Vector3 vel(velocity(4 * idx) / 100.0, velocity(4 * idx + 1) / 100.0, velocity(4 * idx + 2) / 100.0);
+        gdp->setPos3(ptoff, pos);
+        velHandle.set(ptoff, vel);
+        idx++;
+    }
 }
 
-void GAS_MPM_CODIMENSIONAL::transferPRIMAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp) {}
 
-void GAS_MPM_CODIMENSIONAL::transferDTAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp) {}
+void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp) { }
+
+void GAS_MPM_CODIMENSIONAL::transferDTAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp) { }

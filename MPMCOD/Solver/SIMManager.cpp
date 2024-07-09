@@ -629,10 +629,6 @@ void SIMManager::conservativeResizeFaces(int num_faces) {
 	m_face_to_parameters.resize(num_faces);
 }
 
-const std::vector<std::vector<RayTriInfo> >& SIMManager::getIntersections() const {
-	return m_ray_tri_gauss;
-}
-
 const std::vector<int> SIMManager::getParticleGroup() const {
 	return m_particle_group;
 }
@@ -655,12 +651,10 @@ void SIMManager::initGaussSystem() {
 	m_vol_gauss.resize(num_system);
 	m_rest_vol_gauss.resize(num_system);
 	m_radius_gauss.resize(2 * num_system);
-	m_ray_tri_gauss.resize(num_system);
 
 	m_gauss_nodes_x.resize(num_system);
 	m_gauss_nodes_y.resize(num_system);
 	m_gauss_nodes_z.resize(num_system);
-
 	m_gauss_weights.resize(num_system);
 	m_gauss_to_parameters.resize(num_system);
 
@@ -690,9 +684,9 @@ void SIMManager::initGaussSystem() {
 		m_m_gauss(i * 4 + 3) = m_vol_gauss(i) * getGaussDensity(i) * 0.5 * g_radius_A * g_radius_B;
 
 		m_radius_gauss(i * 2 + 0) = sqrt((m_radius(e(0) * 2 + 0) * m_radius(e(0) * 2 + 0) +
-							m_radius(e(1) * 2 + 0) * m_radius(e(1)) * 2 + 0) * 0.5);
+						m_radius(e(1) * 2 + 0) * m_radius(e(1)) * 2 + 0) * 0.5);
 		m_radius_gauss(i * 2 + 1) = sqrt((m_radius(e(0) * 2 + 1) * m_radius(e(0) * 2 + 1) +
-							m_radius(e(1) * 2 + 1) * m_radius(e(1)) * 2 + 1) * 0.5);
+						m_radius(e(1) * 2 + 1) * m_radius(e(1)) * 2 + 1) * 0.5);
 
 	});
 
@@ -747,10 +741,6 @@ void SIMManager::initGaussSystem() {
 		Vector3s tangent = (m_x.segment<3>(e(1) * 4) - m_x.segment<3>(e(0) * 4));
 		Vector3s normal = findNormal(tangent.normalized());
 		Vector3s binorm = tangent.cross(normal).normalized();
-
-		// warning: this is a hack!!
-		// binorm = Vector3s(0, 0, 1);
-		// normal = binorm.cross(tangent).normalized();
 
 		Matrix3s m_D;
 		m_D.block<3, 1>(0, 0) = tangent;
@@ -3130,12 +3120,9 @@ void SIMManager::setFace(int idx, const Vector3i& face) {
 									m_particle_to_face[face(1)].size(),
 									m_particle_to_face[face(2)].size());
 
-	m_particle_to_face[face(0)].push_back(
-			std::pair<int, scalar>(idx, angle_frac[0]));
-	m_particle_to_face[face(1)].push_back(
-			std::pair<int, scalar>(idx, angle_frac[1]));
-	m_particle_to_face[face(2)].push_back(
-			std::pair<int, scalar>(idx, angle_frac[2]));
+	m_particle_to_face[face(0)].push_back(std::pair<int, scalar>(idx, angle_frac[0]));
+	m_particle_to_face[face(1)].push_back(std::pair<int, scalar>(idx, angle_frac[1]));
+	m_particle_to_face[face(2)].push_back(std::pair<int, scalar>(idx, angle_frac[2]));
 }
 
 void SIMManager::setFixed(int particle, unsigned char fixed) {

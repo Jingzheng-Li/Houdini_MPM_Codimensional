@@ -33,6 +33,7 @@
 
 #include "Solver/SIMManager.h"
 #include "Solver/SceneStepper.h"
+#include "Solver/SIMCore.h"
 #include "Solver/LinearizedImplicitEuler.h"
 #include "SolidForce/SimpleGravityForce.h"
 #include "SolidForce/AttachForce.h"
@@ -77,17 +78,18 @@ protected:
     void transferHairAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
     void transferDTAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
 
-    void transferPTAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp);
-    void transferPRIMAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp);
-    void transferDTAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp);
+    void transferPointAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp);
+    void transferFaceAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp);
+    void transferDTAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp);
 
     void loadSIMInfos();
-    void loadGravity(const SIM_Geometry *geo, const GU_Detail *gdp);
+    void loadGravity(SIM_Object* object, const GU_Detail *gdp);
 
 private:
 
     // 总感觉这个指针这里有点问题
     std::shared_ptr<SIMManager> m_manager;
+    std::shared_ptr<SIMCore> m_core;
 
 
     scalar m_criterion;

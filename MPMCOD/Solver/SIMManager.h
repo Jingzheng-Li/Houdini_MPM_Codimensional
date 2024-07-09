@@ -548,8 +548,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	const std::vector<int>& getParticleToSurfels() const;
 
-	const std::vector<std::vector<RayTriInfo> >& getIntersections() const;
-
 	const std::vector<Vector3s>& getFaceWeights() const;
 
 	scalar interpolateValue(const Vector3s& pos, const std::vector<VectorXs>& phi,
@@ -603,8 +601,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	VectorXs m_vol_gauss;
 	VectorXs m_rest_vol_gauss;
 	VectorXs m_radius_gauss;
-
-	std::vector<std::vector<RayTriInfo> > m_ray_tri_gauss;
 
 	MatrixXs m_Fe_gauss;     // elastic deformation gradient
 	MatrixXs m_d_gauss;      // material axis
