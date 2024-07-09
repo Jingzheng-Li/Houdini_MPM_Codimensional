@@ -42,17 +42,11 @@ class LinearizedImplicitEuler : public SceneStepper {
 						std::vector<VectorXs>& out_node_vec_y,
 						std::vector<VectorXs>& out_node_vec_z);
 
-	void prepareGroupPrecondition(const SIMManager& scene,
-								const std::vector<VectorXs>& node_m_x,
-								const std::vector<VectorXs>& node_m_y,
-								const std::vector<VectorXs>& node_m_z,
-								const scalar& dt);
-
 	void performLocalSolveTwist(const SIMManager& scene, const VectorXs& rhs,
-															const VectorXs& m, VectorXs& out);
+								const VectorXs& m, VectorXs& out);
 
 	void performLocalSolve(const SIMManager& scene, const VectorXs& rhs,
-												 const VectorXs& m, VectorXs& out);
+							const VectorXs& m, VectorXs& out);
 
 	void performInvLocalSolve(const SIMManager& scene,
 							const std::vector<VectorXs>& node_rhs_x,
@@ -64,14 +58,6 @@ class LinearizedImplicitEuler : public SceneStepper {
 							std::vector<VectorXs>& out_node_vec_x,
 							std::vector<VectorXs>& out_node_vec_y,
 							std::vector<VectorXs>& out_node_vec_z);
-
-	void performGroupedLocalSolve(const SIMManager& scene,
-								const std::vector<VectorXs>& node_rhs_x,
-								const std::vector<VectorXs>& node_rhs_y,
-								const std::vector<VectorXs>& node_rhs_z,
-								std::vector<VectorXs>& out_node_vec_x,
-								std::vector<VectorXs>& out_node_vec_y,
-								std::vector<VectorXs>& out_node_vec_z);
 
 	void performGlobalMultiply(const SIMManager& scene, const scalar& dt,
 							const std::vector<VectorXs>& node_m_x,

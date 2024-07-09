@@ -482,10 +482,6 @@ void LinearizedImplicitEuler::constructHessianPostProcess(SIMManager& scene, con
 			m_triA_sup[cell].second = G_ID_NEXT;
 		}
 	});
-
-	if (scene.getSIMInfo().use_group_precondition) {
-		prepareGroupPrecondition(scene, m_node_Cs_x, m_node_Cs_y, m_node_Cs_z, dt);
-	}
 }
 
 void LinearizedImplicitEuler::constructAngularHessianPreProcess(SIMManager& scene, const scalar& dt) {
@@ -657,13 +653,9 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 						<< "/" << (m_pcg_criterion * res_norm_0) << "]" << std::endl;
 		} else {
 			// Solve Mr=z
-			if (scene.getSIMInfo().use_group_precondition) {
-				performGroupedLocalSolve(scene, m_node_z_x, m_node_z_y, m_node_z_z, m_node_r_x, m_node_r_y, m_node_r_z);
-			} else {
-				performInvLocalSolve(scene, m_node_z_x, m_node_z_y, m_node_z_z,
-									m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z,
-									m_node_r_x, m_node_r_y, m_node_r_z);
-			}
+			performInvLocalSolve(scene, m_node_z_x, m_node_z_y, m_node_z_z,
+					m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z,
+					m_node_r_x, m_node_r_y, m_node_r_z);
 			// p = r
 			buckets.for_each_bucket([&](int bucket_idx) {
 				m_node_p_x[bucket_idx] = m_node_r_x[bucket_idx];
@@ -691,15 +683,10 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 								m_node_p_x, m_node_p_y, m_node_p_z, m_node_q_x,
 								m_node_q_y, m_node_q_z);
 
-			if (scene.getSIMInfo().use_group_precondition) {
-				performGroupedLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
-										m_node_z_x, m_node_z_y, m_node_z_z);
-			} else {
-				// Mz=q
-				performInvLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
-									m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z,
-									m_node_z_x, m_node_z_y, m_node_z_z);
-			}
+			performInvLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
+								m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z,
+								m_node_z_x, m_node_z_y, m_node_z_z);
+
 
 			// alpha = rho / (q, z)
 			scalar alpha = rho / dotNodeVectors(m_node_q_x, m_node_q_y, m_node_q_z, m_node_z_x, m_node_z_y, m_node_z_z);
@@ -752,16 +739,9 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 				});
 
 				// Mz = q
-				if (scene.getSIMInfo().use_group_precondition) {
-					performGroupedLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
-											m_node_z_x, m_node_z_y, m_node_z_z);
-				} else {
-					// Mz=q
-					performInvLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
-										m_node_inv_Cs_x, m_node_inv_Cs_y,
-										m_node_inv_Cs_z, m_node_z_x, m_node_z_y,
-										m_node_z_z);
-				}
+				performInvLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
+									m_node_inv_Cs_x, m_node_inv_Cs_y,
+									m_node_inv_Cs_z, m_node_z_x, m_node_z_y, m_node_z_z);
 
 				// alpha = rho / (q, z)
 				alpha = rho / dotNodeVectors(m_node_q_x, m_node_q_y, m_node_q_z,
@@ -909,126 +889,26 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 				if (scene.getSIMInfo().iteration_print_step > 0 &&
 						iter % scene.getSIMInfo().iteration_print_step == 0)
 					std::cout << "[angular pcr total iter: " << iter
-										<< ", res: " << res_norm << "/" << m_pcg_criterion
-										<< ", abs. res: " << (res_norm * res_norm_1) << "/"
-										<< (m_pcg_criterion * res_norm_1)
-										<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
-										<< (rho_criterion / (res_norm_1 * res_norm_1))
-										<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-										<< std::endl;
+							<< ", res: " << res_norm << "/" << m_pcg_criterion
+							<< ", abs. res: " << (res_norm * res_norm_1) << "/"
+							<< (m_pcg_criterion * res_norm_1)
+							<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
+							<< (rho_criterion / (res_norm_1 * res_norm_1))
+							<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+							<< std::endl;
 			}
 
 			std::cout << "[angular pcr total iter: " << iter << ", res: " << res_norm
-								<< "/" << m_pcg_criterion
-								<< ", abs. res: " << (res_norm * res_norm_1) << "/"
-								<< (m_pcg_criterion * res_norm_1)
-								<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
-								<< (rho_criterion / (res_norm_1 * res_norm_1))
-								<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-								<< std::endl;
+					<< "/" << m_pcg_criterion
+					<< ", abs. res: " << (res_norm * res_norm_1) << "/"
+					<< (m_pcg_criterion * res_norm_1)
+					<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
+					<< (rho_criterion / (res_norm_1 * res_norm_1))
+					<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+					<< std::endl;
 		}
 	}
 	return true;
-}
-
-void LinearizedImplicitEuler::performGroupedLocalSolve(
-		const SIMManager& scene, const std::vector<VectorXs>& node_rhs_x,
-		const std::vector<VectorXs>& node_rhs_y,
-		const std::vector<VectorXs>& node_rhs_z,
-		std::vector<VectorXs>& out_node_vec_x,
-		std::vector<VectorXs>& out_node_vec_y,
-		std::vector<VectorXs>& out_node_vec_z) {
-	const std::vector<VectorXi>& groups = scene.getSolveGroup();
-
-	const int num_groups = (int)groups.size();
-
-	VectorXs rhs_buffer(scene.getNumSoftElastoParticles() * 4);
-	rhs_buffer.setZero();
-
-	VectorXs sol_buffer(scene.getNumSoftElastoParticles() * 4);
-	sol_buffer.setZero();
-
-	mapNodeToSoftParticles(scene, node_rhs_x, node_rhs_y, node_rhs_z, rhs_buffer);
-
-	threadutils::for_each(0, num_groups, [&](int igroup) {
-		const VectorXi& members = groups[igroup];
-		const int num_members = members.size();
-
-		VectorXs group_rhs(num_members * 3);
-		for (int i = 0; i < num_members; ++i) {
-			group_rhs.segment<3>(i * 3) = rhs_buffer.segment<3>(members[i] * 4);
-		}
-
-		VectorXs group_sol = m_group_preconditioners[igroup]->solve(group_rhs);
-
-		for (int i = 0; i < num_members; ++i) {
-			sol_buffer.segment<3>(members[i] * 4) = group_sol.segment<3>(i * 3);
-		}
-	});
-
-	mapSoftParticlesToNode(scene, out_node_vec_x, out_node_vec_y, out_node_vec_z, sol_buffer);
-}
-
-void LinearizedImplicitEuler::prepareGroupPrecondition(
-		const SIMManager& scene, const std::vector<VectorXs>& node_m_x,
-		const std::vector<VectorXs>& node_m_y,
-		const std::vector<VectorXs>& node_m_z, const scalar& dt) {
-	const std::vector<VectorXi>& groups = scene.getSolveGroup();
-
-	const int num_groups = (int)groups.size();
-
-	m_group_preconditioners.resize(num_groups);
-
-	VectorXs mass_buffer(scene.getNumSoftElastoParticles() * 4);
-	mass_buffer.setZero();
-	// map drag + mass vector back to particles
-	mapNodeToSoftParticles(scene, node_m_x, node_m_y, node_m_z, mass_buffer);
-
-	threadutils::for_each(0, num_groups, [&](int igroup) {
-		const VectorXi& members = groups[igroup];
-		std::unordered_map<int, int> finder;
-
-		const int num_members = members.size();
-
-		for (int i = 0; i < num_members; ++i) {
-			finder[members[i]] = i;
-		}
-
-		TripletXs tri_sub_A;
-
-		for (auto p : finder) {
-			for (int r = 0; r < 3; ++r) {
-				int i = p.first * 4 + r;
-				const int idata_start = m_triA_sup[i].first;
-				const int idata_end = m_triA_sup[i].second;
-
-				for (int j = idata_start; j < idata_end; ++j) {
-					const Triplets& tri = m_triA[j];
-					const int qidx = tri.col() / 4;
-					const int s = tri.col() - qidx * 4;
-					if (s >= 3) continue;
-
-					auto q = finder.find(qidx);
-					if (q == finder.end()) continue;
-
-					tri_sub_A.push_back(Triplets(p.second * 3 + r, q->second * 3 + s, tri.value() * dt * dt));
-				}
-			}
-		}
-
-		for (int i = 0; i < num_members; ++i) {
-			const int pidx = members[i];
-
-			for (int r = 0; r < 3; ++r) {
-				tri_sub_A.push_back(Triplets(i * 3 + r, i * 3 + r, mass_buffer[pidx * 4 + r]));
-			}
-		}
-
-		SparseXs sub_A(num_members * 3, num_members * 3);
-		sub_A.setFromTriplets(tri_sub_A.begin(), tri_sub_A.end());
-
-		m_group_preconditioners[igroup] = std::make_shared<Eigen::SimplicialLDLT<SparseXs> >(sub_A);
-	});
 }
 
 

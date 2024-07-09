@@ -85,11 +85,6 @@ void SIMCore::stepSystem(const scalar& dt) {
 		// Update Solid Stress
 		m_scene->computedEdFe();
 
-		m_scene->updateManifoldOperators();
-
-		// Update the Orientation Field
-		// m_scene->updateOrientation();
-
 		// Here's the precomputation of some forces lay
 		m_scene->updateStartState();
 

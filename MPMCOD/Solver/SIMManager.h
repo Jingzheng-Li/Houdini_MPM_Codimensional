@@ -27,7 +27,6 @@ struct SIMInfo {
 	int iteration_print_step;
 	bool solve_solid;
 	bool use_pcr;
-	bool use_group_precondition;
 
 	friend std::ostream& operator<<(std::ostream&, const SIMInfo&);
 };
@@ -53,9 +52,7 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
  public:
 	SIMManager();
-
 	SIMManager(const SIMManager& otherscene) = delete;
-
 	~SIMManager();
 
 	int getNumParticles() const;
@@ -146,18 +143,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	inline bool isFluid(int pidx) const;
 
 	const std::vector<std::shared_ptr<DistanceField> >& getGroupDistanceField() const;
-
-	// const std::vector<VectorXuc>& getNodeStateX() const;
-
-	// std::vector<VectorXuc>& getNodeStateX();
-
-	// const std::vector<VectorXuc>& getNodeStateY() const;
-
-	// std::vector<VectorXuc>& getNodeStateY();
-
-	// const std::vector<VectorXuc>& getNodeStateZ() const;
-
-	// std::vector<VectorXuc>& getNodeStateZ();
 
 	const VectorXs& getNodePos(int bucket_idx) const;
 
@@ -273,14 +258,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	Matrix27x3s& getGaussWeights(int pidx);
 
-	// const std::vector<VectorXi>& getPressureNeighbors() const;
-
-	// const std::vector<VectorXi>& getNodePressureIndexX() const;
-
-	// const std::vector<VectorXi>& getNodePressureIndexY() const;
-
-	// const std::vector<VectorXi>& getNodePressureIndexZ() const;
-
 	void swapParticles(int i, int j);
 
 	void mapParticleNodesAPIC();  // particles to nodes mapping
@@ -301,8 +278,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	void updateGaussAccel();
 
-	void updateManifoldOperators();
-
 	void initGaussSystem();
 
 	VectorXs getPosition(int particle);
@@ -313,11 +288,7 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	void setSIMInfo(const SIMInfo& info);
 
-	void setTheta(int particle, const scalar theta);
-
 	void setVelocity(int particle, const Vector3s& vel);
-
-	void setOmega(int particle, const scalar omega);
 
 	void setVolume(int particle, const scalar& volume);
 
@@ -428,12 +399,9 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	void setTipVerts(int particle, bool tipVerts);
 
-	void accumulateGradU(VectorXs& F, const VectorXs& dx = VectorXs(),
-											 const VectorXs& dv = VectorXs());
+	void accumulateGradU(VectorXs& F, const VectorXs& dx = VectorXs(), const VectorXs& dv = VectorXs());
 
-
-	void accumulateGaussGradU(MatrixXs& F, const VectorXs& dx = VectorXs(),
-														const VectorXs& dv = VectorXs());
+	void accumulateGaussGradU(MatrixXs& F, const VectorXs& dx = VectorXs(), const VectorXs& dv = VectorXs());
 
 	void precompute();
 
@@ -446,12 +414,10 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	void updateStartState();
 
 	void accumulateddUdxdx(TripletXs& A, const scalar& dt, int base_idx,
-												 const VectorXs& dx = VectorXs(),
-												 const VectorXs& dv = VectorXs());
+							const VectorXs& dx = VectorXs(), const VectorXs& dv = VectorXs());
 
 	void accumulateAngularddUdxdx(TripletXs& A, const scalar& dt, int base_idx,
-																const VectorXs& dx = VectorXs(),
-																const VectorXs& dv = VectorXs());
+								const VectorXs& dx = VectorXs(), const VectorXs& dv = VectorXs());
 
 	void computedEdFe();
 
@@ -484,9 +450,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	void updateGaussWeights(scalar dt);
 	void computeWeights(scalar dt);
 	void updateSolidWeights();
-	// void updateCurvatureP();
-	// void updateColorP();
-	// void advectCurvatureP(const scalar& dt);
 
 	void updateRestPos();
 
@@ -501,8 +464,7 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	void updateTotalMass();
 
-	void setBucketInfo(const scalar& bucket_size, int num_cells,
-										 int kernel_order);
+	void setBucketInfo(const scalar& bucket_size, int num_cells, int kernel_order);
 
 	void buildNodeParticlePairs();
 
@@ -523,9 +485,11 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	const std::vector<std::pair<int, int> >& getNodeGaussPairsZ(int bucket_idx, int pidx) const;
 
 	scalar getFrictionAlpha(int pidx) const;
+
 	scalar getFrictionBeta(int pidx) const;
 
 	Eigen::Quaternion<scalar>& getGroupRotation(int group_idx);
+
 	Vector3s& getGroupTranslation(int group_idx);
 
 	Eigen::Quaternion<scalar>& getPrevGroupRotation(int group_idx);
@@ -543,16 +507,11 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	const VectorXuc& getOutsideInfo() const;
 
-	void sampleSolidDistanceFields();
+	scalar computePhiVel(const Vector3s& pos, Vector3s& vel,
+		const std::function<bool(const std::shared_ptr<DistanceField>&)> selector = nullptr) const;
 
-
-	scalar computePhiVel(
-			const Vector3s& pos, Vector3s& vel,
-			const std::function<bool(const std::shared_ptr<DistanceField>&)> selector = nullptr) const;
-
-	scalar computePhi(
-			const Vector3s& pos,
-			const std::function<bool(const std::shared_ptr<DistanceField>&)> selector = nullptr) const;
+	scalar computePhi(const Vector3s& pos,
+		const std::function<bool(const std::shared_ptr<DistanceField>&)> selector = nullptr) const;
 
 	void dump_geometry(std::string filename);
 
@@ -568,8 +527,8 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	template <typename Callable>
 	void findNodes(const Sorter& buckets, const VectorXs& x,
-								 std::vector<Matrix27x2i>& particle_nodes,
-								 const Vector3s& offset, Callable func);
+					std::vector<Matrix27x2i>& particle_nodes,
+					const Vector3s& offset, Callable func);
 
 	void generateNodes();
 
@@ -578,8 +537,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	void connectEdgeNodes();
 
 	void postAllocateNodes();
-
-	// void updateParticleDiv();
 
 	scalar getMaxVelocity() const;
 
@@ -596,26 +553,19 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	const std::vector<Vector3s>& getFaceWeights() const;
 
 	scalar interpolateValue(const Vector3s& pos, const std::vector<VectorXs>& phi,
-													const Vector3s& phi_ori, const scalar& default_val);
+							const Vector3s& phi_ori, const scalar& default_val);
 
-	inline Vector3s nodePosFromBucket(int bucket_idx, int raw_node_idx,
-																		const Vector3s& offset) const;
+	inline Vector3s nodePosFromBucket(int bucket_idx, int raw_node_idx, const Vector3s& offset) const;
 
 	void markInsideOut();
 
 	bool isSoft(int pidx) const;
-
-	bool useSurfTension() const;
 
 	void updateVelocityDifference();
 
 	void saveParticleVelocity();
 
 	void computeDDA();
-
-	void insertSolveGroup(const VectorXi& group);
-
-	const std::vector<VectorXi>& getSolveGroup() const;
 
 	void updateStrandParamViscosity(const scalar& dt);
 
@@ -624,6 +574,7 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	const std::vector<unsigned char>& getBucketActivated() const;
 
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
 
  private:
 	int step_count;
@@ -661,7 +612,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	MatrixXs m_D_gauss;      // original material axis
 	MatrixXs m_D_inv_gauss;  // inverse of original material axis
 	MatrixXs m_dFe_gauss;    // dphidFe
-	MatrixXs m_grad_gauss;  // 3m x 3 (or 2) vectors for computing gradient on Gauss
 	MatrixXs m_norm_gauss;  // normalized material axis with rigid transformation
 
 	std::vector<unsigned char> m_fixed;
@@ -757,17 +707,13 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	std::vector<VectorXs> m_node_vol_y;
 	std::vector<VectorXs> m_node_vol_z;
 
-
 	std::vector<std::shared_ptr<StrandForce> > m_strands;
 	std::vector<bool> m_is_strand_tip;
 
-	std::vector<VectorXi> m_solve_groups;
-
 	std::vector<MatrixXi> m_gauss_bucket_neighbors;
 
-	SIMInfo m_liquid_info;
+	SIMInfo m_siminfo;
 
-	// Forces. Note that the scene inherits responsibility for deleting forces.
 	std::vector<std::shared_ptr<Force> > m_forces;
 
 	std::vector<std::shared_ptr<AttachForce> > m_attach_forces;

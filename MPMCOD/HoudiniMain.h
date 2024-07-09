@@ -14,6 +14,7 @@
 #include <SIM/SIM_Engine.h>
 #include <SIM/SIM_VectorField.h>
 #include <SIM/SIM_Time.h>
+#include <SIM/SIM_ForceGravity.h>
 #include <SIM/SIM_Solver.h>
 #include <SIM/SIM_DopDescription.h>
 #include <GEO/GEO_Primitive.h>
@@ -29,9 +30,17 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
+
 #include "Solver/SIMManager.h"
 #include "Solver/SceneStepper.h"
 #include "Solver/LinearizedImplicitEuler.h"
+#include "SolidForce/SimpleGravityForce.h"
+#include "SolidForce/AttachForce.h"
+#include "SolidForce/JunctionForce.h"
+#include "SolidForce/LevelSetForce.h"
+
+#include "ModelThinShell/ThinShellForce.h"
+
 
 #define CHECK_ERROR(correctcond, msg) \
     if (!(correctcond)) { \
@@ -63,20 +72,24 @@ protected:
 
 protected:
 
-    void transferPTAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
-    void transferPRIMAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
+    void transferPointAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
+    void transferFaceAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
+    void transferHairAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
     void transferDTAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
-
 
     void transferPTAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp);
     void transferPRIMAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp);
     void transferDTAttribTOHoudini(const SIM_Geometry *geo, const GU_Detail *gdp);
 
+    void loadSIMInfos();
+    void loadGravity(const SIM_Geometry *geo, const GU_Detail *gdp);
+
 private:
 
-    std::shared_ptr<SIMManager> m_scene;
+    // 总感觉这个指针这里有点问题
+    std::shared_ptr<SIMManager> m_manager;
 
-    
+
     scalar m_criterion;
     int m_maxiters;
 
