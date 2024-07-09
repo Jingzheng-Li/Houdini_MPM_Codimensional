@@ -23,6 +23,7 @@ GAS_MPM_CODIMENSIONAL::GAS_MPM_CODIMENSIONAL(const SIM_DataFactory* factory) : B
 
 GAS_MPM_CODIMENSIONAL::~GAS_MPM_CODIMENSIONAL() {
     m_scene.reset();
+    
 }
 
 bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
@@ -64,7 +65,9 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 /////////////////////////////////////////
 void GAS_MPM_CODIMENSIONAL::transferPTAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp) {
 
-    // particle velocity [theta omega fixed] radius biradius vol fvol group m fm vf
+    // particle velocity [theta omega fixed] radius biradius vol fvol group m fm
+    // TODO: how to fix group??
+    // TODO: unit should be cm!
 
     int numParticles = gdp->getNumPoints();
     CHECK_ERROR(numParticles > 0, "No particles found in geometry");
@@ -86,10 +89,10 @@ void GAS_MPM_CODIMENSIONAL::transferPTAttribTOEigen(const SIM_Geometry *geo, con
         if (idx >= numParticles) break; // Ensure we don't go out of bounds
         UT_Vector3D pos3 = gdp->getPos3D(ptoff);
         UT_Vector3D vel3 = velHandle.get(ptoff);
-        positions.row(idx) << pos3.x(), pos3.y(), pos3.z();
-        velocities.row(idx) << vel3.x(), vel3.y(), vel3.z();
-        masses(idx) = massHandle.get(ptoff);
-        radius(idx) = radiusHandle.get(ptoff);
+        positions.row(idx) << pos3.x() * 100.0, pos3.y() * 100.0, pos3.z() * 100.0;
+        velocities.row(idx) << vel3.x() * 100.0, vel3.y() * 100.0, vel3.z() * 100.0;
+        masses(idx) = massHandle.get(ptoff) * 1000.0;
+        radius(idx) = radiusHandle.get(ptoff) * 100.0;
         idx++; // Increment the index for the next row
     }
 
@@ -100,7 +103,29 @@ void GAS_MPM_CODIMENSIONAL::transferPTAttribTOEigen(const SIM_Geometry *geo, con
         m_scene->setPosition(i, positions.row(i).transpose());
         m_scene->setVelocity(i, velocities.row(i).transpose());
         m_scene->setMass(i, masses(i), 0.0);
+        m_scene->setRadius(i, radius(i), radius(i));
     }
+
+
+    m_criterion = 1e-6;
+    m_maxiters = 100;
+    std::shared_ptr<SceneStepper> scenestepper = nullptr;
+    scenestepper = std::make_shared<LinearizedImplicitEuler>(m_criterion, m_maxiters);
+    CHECK_ERROR(scenestepper != nullptr, "Failed to create LinearizedImplicitEuler stepper");
+
+    info.use_pcr = true;
+    info.solve_solid = true;
+    info.viscosity = 8.9e-3;
+    info.lambda = 2.0;
+    info.elasto_flip_asym_coeff = 1.0;
+    info.elasto_flip_coeff = 0.95;
+    info.elasto_advect_coeff = 1.0;
+    info.bending_scheme = 2;
+    info.levelset_young_modulus = 6.6e6;
+    info.use_group_precondition = false;
+    info.iteration_print_step = 0;
+
+
 }
 
 void GAS_MPM_CODIMENSIONAL::transferPRIMAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp) {}

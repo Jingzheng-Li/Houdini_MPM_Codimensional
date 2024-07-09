@@ -19,49 +19,8 @@
 /*!
  * Outputting parameters for debugging
  */
-std::ostream& operator<<(std::ostream& os, const LiquidInfo& info) {
-	os << "liquid density: " << info.liquid_density << std::endl;
-	os << "air density: " << info.air_density << std::endl;
-	os << "surf tension coeff: " << info.surf_tension_coeff << std::endl;
+std::ostream& operator<<(std::ostream& os, const SIMInfo& info) {
 	os << "viscosity: " << info.viscosity << std::endl;
-	os << "air viscosity: " << info.air_viscosity << std::endl;
-	os << "rest contact angle: " << info.rest_contact_angle << std::endl;
-	os << "yazdchi power: " << info.yazdchi_power << std::endl;
-	os << "pore radius: " << info.pore_radius << std::endl;
-	os << "fiber diameter: " << info.yarn_diameter << std::endl;
-	os << "rest volume fraction: " << info.rest_volume_fraction << std::endl;
-	os << "lambda: " << info.lambda << std::endl;
-	os << "cohesion coeff: " << info.cohesion_coeff << std::endl;
-	os << "correction multiplier: " << info.correction_multiplier << std::endl;
-	os << "correction strength: " << info.correction_strength << std::endl;
-	os << "flip coeff: " << info.flip_coeff << std::endl;
-	os << "elasto flip stretching coeff: " << info.elasto_flip_coeff << std::endl;
-	os << "elasto flip-asym coeff: " << info.elasto_flip_asym_coeff << std::endl;
-	os << "elasto advection coeff: " << info.elasto_advect_coeff << std::endl;
-	os << "particle cell multiplier: " << info.particle_cell_multiplier
-		 << std::endl;
-	os << "levelset modulus: " << info.levelset_young_modulus << std::endl;
-	os << "correction step: " << info.correction_step << std::endl;
-	os << "bending scheme: " << info.bending_scheme << std::endl;
-	os << "use cohesion: " << info.use_cohesion << std::endl;
-	os << "solid cohesion: " << info.solid_cohesion << std::endl;
-	os << "soft cohesion: " << info.soft_cohesion << std::endl;
-	os << "solve solid: " << info.solve_solid << std::endl;
-	os << "use nonlinear drag: " << info.use_nonlinear_drag << std::endl;
-	os << "use drag: " << info.use_drag << std::endl;
-	os << "apply pressure solid: " << info.apply_pressure_solid << std::endl;
-	os << "use levelset force: " << info.use_levelset_force << std::endl;
-	os << "apply pressure manifold: " << info.apply_pressure_manifold
-		 << std::endl;
-	os << "use twist: " << info.use_twist << std::endl;
-	os << "use bicgstab: " << info.use_bicgstab << std::endl;
-	os << "use amgpcg solid: " << info.use_amgpcg_solid << std::endl;
-	os << "apply pore pressure solid: " << info.apply_pore_pressure_solid
-		 << std::endl;
-	os << "propagate solid velocity: " << info.propagate_solid_velocity
-		 << std::endl;
-	os << "check divergence: " << info.check_divergence << std::endl;
-	os << "use varying fraction: " << info.use_varying_fraction << std::endl;
 	return os;
 }
 
@@ -540,9 +499,6 @@ void SIMManager::loadAttachForces() {
 	}
 }
 
-bool SIMManager::propagateSolidVelocity() const {
-	return m_liquid_info.propagate_solid_velocity;
-}
 
 bool SIMManager::isTip(int particle) const {
 	assert(particle >= 0);
@@ -1495,10 +1451,6 @@ void SIMManager::buildNodeParticlePairs() {
 			3);
 }
 
-bool SIMManager::useSurfTension() const {
-	return m_liquid_info.use_surf_tension;
-}
-
 
 scalar SIMManager::interpolateValue(const Vector3s& pos,
 								const std::vector<VectorXs>& phi,
@@ -1794,7 +1746,7 @@ const std::vector<VectorXs>& SIMManager::getNodeSolidVelZ() const {
 	return m_node_solid_vel_z;
 }
 
-void SIMManager::setLiquidInfo(const LiquidInfo& info) { m_liquid_info = info; }
+void SIMManager::setSIMInfo(const SIMInfo& info) { m_liquid_info = info; }
 
 
 scalar SIMManager::getMaxVelocity() const {
@@ -2539,9 +2491,9 @@ void SIMManager::initGroupPos() {
 	}
 }
 
-LiquidInfo& SIMManager::getLiquidInfo() { return m_liquid_info; }
+SIMInfo& SIMManager::getSIMInfo() { return m_liquid_info; }
 
-const LiquidInfo& SIMManager::getLiquidInfo() const { return m_liquid_info; }
+const SIMInfo& SIMManager::getSIMInfo() const { return m_liquid_info; }
 
 scalar SIMManager::computePhi(
 		const Vector3s& pos,
@@ -3568,14 +3520,6 @@ void SIMManager::accumulateGradU(VectorXs& F, const VectorXs& dx, const VectorXs
 		}
 	}
 }
-
-
-bool SIMManager::useAMGPCGSolid() const {
-	return m_liquid_info.use_amgpcg_solid;
-}
-
-bool SIMManager::useBiCGSTAB() const { return m_liquid_info.use_bicgstab; }
-
 
 bool SIMManager::isGaussFixed(int i) const {
 	const int num_edges = getNumEdges();

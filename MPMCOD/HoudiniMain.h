@@ -29,7 +29,9 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
-#include "SIMManager.h"
+#include "Solver/SIMManager.h"
+#include "Solver/SceneStepper.h"
+#include "Solver/LinearizedImplicitEuler.h"
 
 #define CHECK_ERROR(correctcond, msg) \
     if (!(correctcond)) { \
@@ -42,6 +44,7 @@
         std::cerr << msg << std::endl; \
         return false; \
     }
+
 
 
 class GAS_MPM_CODIMENSIONAL : public GAS_SubSolver {
@@ -72,6 +75,13 @@ protected:
 private:
 
     std::shared_ptr<SIMManager> m_scene;
+
+    
+    scalar m_criterion;
+    int m_maxiters;
+
+    SIMInfo info;
+
 
 private:
 

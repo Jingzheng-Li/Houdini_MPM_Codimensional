@@ -45,7 +45,7 @@ void LevelSetForce::addGradEToTotal(const VectorXs& x, const VectorXs& v,
 
   const VectorXs& vol = m_scene->getVol();
 
-  const scalar K = m_scene->getLiquidInfo().levelset_young_modulus;
+  const scalar K = m_scene->getSIMInfo().levelset_young_modulus;
 
   const scalar iD = m_scene->getInverseDCoeff();
 
@@ -104,7 +104,7 @@ void LevelSetForce::addHessXToTotal(const VectorXs& x, const VectorXs& v,
 
   const VectorXs& vol = m_scene->getVol();
 
-  const scalar K = m_scene->getLiquidInfo().levelset_young_modulus;
+  const scalar K = m_scene->getSIMInfo().levelset_young_modulus;
 
   const scalar iD = m_scene->getInverseDCoeff();
 

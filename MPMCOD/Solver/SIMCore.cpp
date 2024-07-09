@@ -120,7 +120,7 @@ void SIMCore::stepSystem(const scalar& dt) {
 		timing_buffer[4] += t1 - t0;  // Velocity Prediction
 		t0 = t1;
 
-		if (m_scene->getLiquidInfo().solve_solid) {
+		if (m_scene->getSIMInfo().solve_solid) {
 			// Implicitly Integrate the Elastic Objects
 			m_scene_stepper->stepImplicitElasto(*m_scene, sub_dt);
 			t1 = timingutils::seconds();

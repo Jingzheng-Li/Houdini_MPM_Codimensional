@@ -10,12 +10,7 @@
 #include "Utils/StringUtilities.h"
 class LinearizedImplicitEuler : public SceneStepper {
  public:
-	LinearizedImplicitEuler(const scalar& criterion,
-							const scalar& pressure_criterion,
-							const scalar& quasi_static_criterion,
-							const scalar& viscous_criterion, int maxiters,
-							int manifold_substeps, int viscosity_substeps,
-							int surf_tension_substeps);
+	LinearizedImplicitEuler(const scalar& criterion, int maxiters);
 
 	virtual ~LinearizedImplicitEuler();
 

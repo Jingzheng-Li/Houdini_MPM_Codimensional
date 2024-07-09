@@ -129,7 +129,7 @@ ThinShellForce::ThinShellForce(const std::shared_ptr<SIMManager>& scene,
 			m_per_triangles_unique_edges, params->m_youngsModulus.get(),
 			params->m_viscousBendingCoefficientBase, poisson_ratio,
 			params->m_physicalRadius.get()(0) + params->m_physicalRadius.get()(1),
-			m_scene->getLiquidInfo().bending_scheme, params->m_accumulateWithViscous,
+			m_scene->getSIMInfo().bending_scheme, params->m_accumulateWithViscous,
 			params->m_useApproxJacobian, params->m_useTournierJacobian));
 }
 

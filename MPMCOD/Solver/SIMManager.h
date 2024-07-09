@@ -16,65 +16,23 @@
 class StrandForce;
 class AttachForce;
 
-struct LiquidInfo {
-	scalar liquid_density;
-	scalar air_density;
-	scalar surf_tension_coeff;
+struct SIMInfo {
 	scalar viscosity;
-	scalar air_viscosity;
-	scalar rest_contact_angle;
-	scalar yazdchi_power;
-	scalar pore_radius;
-	scalar yarn_diameter;
-	scalar rest_volume_fraction;
 	scalar lambda;
-	scalar cohesion_coeff;
-	scalar correction_multiplier;
-	scalar correction_strength;
-	scalar flip_coeff;
 	scalar elasto_flip_asym_coeff;
 	scalar elasto_flip_coeff;
 	scalar elasto_advect_coeff;
-	scalar particle_cell_multiplier;
 	scalar levelset_young_modulus;
-	scalar liquid_boundary_friction;
-	scalar levelset_thickness;
-	scalar elasto_capture_rate;
-	int correction_step;
 	int bending_scheme;
 	int iteration_print_step;
-	int surf_tension_smoothing_step;
-	bool use_surf_tension;
-	bool use_cohesion;
-	bool solid_cohesion;
-	bool soft_cohesion;
 	bool solve_solid;
-	bool use_nonlinear_drag;
-	bool use_drag;
-	bool apply_pressure_solid;
-	bool use_levelset_force;
-	bool apply_pressure_manifold;
-	bool use_twist;
-	bool use_bicgstab;
-	bool use_amgpcg_solid;
 	bool use_pcr;
-	bool apply_pore_pressure_solid;
-	bool propagate_solid_velocity;
-	bool check_divergence;
-	bool use_varying_fraction;
-	bool compute_viscosity;
-	bool implicit_viscosity;
-	bool drag_by_future_solid;
-	bool drag_by_air;
-	bool init_nonuniform_fraction;
 	bool use_group_precondition;
-	bool use_lagrangian_mpm;
-	bool use_cosolve_angular;
 
-	friend std::ostream& operator<<(std::ostream&, const LiquidInfo&);
+	friend std::ostream& operator<<(std::ostream&, const SIMInfo&);
 };
 
-std::ostream& operator<<(std::ostream&, const LiquidInfo&);
+std::ostream& operator<<(std::ostream&, const SIMInfo&);
 
 struct RayTriInfo {
 	int start_geo_id;
@@ -129,9 +87,9 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	VectorXs& getVol();
 
-	LiquidInfo& getLiquidInfo();
+	SIMInfo& getSIMInfo();
 
-	const LiquidInfo& getLiquidInfo() const;
+	const SIMInfo& getSIMInfo() const;
 
 	const std::vector<int>& getParticleEdges(int pidx) const;
 
@@ -353,7 +311,7 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	void setPosition(int particle, const Vector3s& pos);
 
-	void setLiquidInfo(const LiquidInfo& info);
+	void setSIMInfo(const SIMInfo& info);
 
 	void setTheta(int particle, const scalar theta);
 
@@ -531,9 +489,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	// void advectCurvatureP(const scalar& dt);
 
 	void updateRestPos();
-	bool useBiCGSTAB() const;
-	bool useAMGPCGSolid() const;
-	bool propagateSolidVelocity() const;
 
 	const VectorXs& getRestPos() const;
 
@@ -810,7 +765,7 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 
 	std::vector<MatrixXi> m_gauss_bucket_neighbors;
 
-	LiquidInfo m_liquid_info;
+	SIMInfo m_liquid_info;
 
 	// Forces. Note that the scene inherits responsibility for deleting forces.
 	std::vector<std::shared_ptr<Force> > m_forces;
