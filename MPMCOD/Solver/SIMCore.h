@@ -27,12 +27,12 @@ class SIMCore {
 
 	virtual void stepSystem(const scalar& dt);
 
-	virtual const std::vector<scalar>& getTimingStatistics() const;
+	// virtual const std::vector<scalar>& getTimingStatistics() const;
 	virtual const std::shared_ptr<SIMManager>& getScene() const;
 	virtual const std::shared_ptr<SceneStepper>& getSceneStepper() const;
 	virtual const Info& getInfo() const;
 
-	virtual int getCurrentTime() const;
+	// virtual int getCurrentTime() const;
 
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -40,9 +40,9 @@ private:
 	std::shared_ptr<SIMManager> m_scene;
 	std::shared_ptr<SceneStepper> m_scene_stepper;
 
-	int m_current_step;
+	// int m_current_step;
 
-	std::vector<scalar> timing_buffer;
+	// std::vector<scalar> timing_buffer;
 
 	Info m_info;
 };

@@ -55,8 +55,6 @@
         return false; \
     }
 
-
-
 class GAS_MPM_CODIMENSIONAL : public GAS_SubSolver {
 
 public:
@@ -84,18 +82,6 @@ protected:
 
     void loadSIMInfos();
     void loadGravity(SIM_Object* object, const GU_Detail *gdp);
-
-private:
-
-    // 总感觉这个指针这里有点问题
-    std::shared_ptr<SIMManager> m_manager;
-    std::shared_ptr<SIMCore> m_core;
-
-
-    scalar m_criterion;
-    int m_maxiters;
-
-    SIMInfo info;
 
 
 private:

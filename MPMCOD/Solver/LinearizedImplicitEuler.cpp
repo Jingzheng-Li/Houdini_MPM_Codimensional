@@ -649,8 +649,8 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 
 		if (res_norm < m_pcg_criterion) {
 			std::cout << "[pcr total iter: " << iter << ", res: " << res_norm << "/"
-						<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
-						<< "/" << (m_pcg_criterion * res_norm_0) << "]" << std::endl;
+					<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
+					<< "/" << (m_pcg_criterion * res_norm_0) << "]" << std::endl;
 		} else {
 			// Solve Mr=z
 			performInvLocalSolve(scene, m_node_z_x, m_node_z_y, m_node_z_z,
@@ -718,12 +718,11 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 
 				// w = Ar
 				performGlobalMultiply(scene, dt, m_node_Cs_x, m_node_Cs_y, m_node_Cs_z,
-															m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x,
-															m_node_w_y, m_node_w_z);
+									m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x,
+									m_node_w_y, m_node_w_z);
 
 				// rho = (r, w)
-				rho = dotNodeVectors(m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x,
-														 m_node_w_y, m_node_w_z);
+				rho = dotNodeVectors(m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x, m_node_w_y, m_node_w_z);
 
 				beta = rho / rho_old;
 
@@ -766,22 +765,22 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 				if (scene.getSIMInfo().iteration_print_step > 0 &&
 						iter % scene.getSIMInfo().iteration_print_step == 0)
 					std::cout << "[pcr total iter: " << iter << ", res: " << res_norm
-										<< "/" << m_pcg_criterion
-										<< ", abs. res: " << (res_norm * res_norm_0) << "/"
-										<< (m_pcg_criterion * res_norm_0)
-										<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
-										<< (rho_criterion / (res_norm_0 * res_norm_0))
-										<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-										<< std::endl;
+							<< "/" << m_pcg_criterion
+							<< ", abs. res: " << (res_norm * res_norm_0) << "/"
+							<< (m_pcg_criterion * res_norm_0)
+							<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
+							<< (rho_criterion / (res_norm_0 * res_norm_0))
+							<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+							<< std::endl;
 			}
 
 			std::cout << "[pcr total iter: " << iter << ", res: " << res_norm << "/"
-								<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
-								<< "/" << (m_pcg_criterion * res_norm_0)
-								<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
-								<< (rho_criterion / (res_norm_0 * res_norm_0))
-								<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-								<< std::endl;
+					<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
+					<< "/" << (m_pcg_criterion * res_norm_0)
+					<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
+					<< (rho_criterion / (res_norm_0 * res_norm_0))
+					<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+					<< std::endl;
 		}
 	}
 
@@ -815,9 +814,9 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 
 		if (res_norm < m_pcg_criterion) {
 			std::cout << "[angular pcr total iter: " << iter << ", res: " << res_norm
-								<< "/" << m_pcg_criterion
-								<< ", abs. res: " << (res_norm * res_norm_1) << "/"
-								<< (m_pcg_criterion * res_norm_1) << "]" << std::endl;
+					<< "/" << m_pcg_criterion
+					<< ", abs. res: " << (res_norm * res_norm_1) << "/"
+					<< (m_pcg_criterion * res_norm_1) << "]" << std::endl;
 		} else {
 			// Solve Mr=z
 			performLocalSolveTwist(scene, m_angular_z, scene.getM(), m_angular_r);

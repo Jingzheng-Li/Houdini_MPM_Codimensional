@@ -14,7 +14,7 @@ struct ElasticParameters {
 									 scalar collisionMultiplier, scalar attachMultiplier,
 									 scalar density, scalar viscosity, scalar baseRotation,
 									 scalar dt, scalar friction_alpha, scalar friction_beta,
-									 scalar restVolumeFraction, bool accumViscous = true,
+									 bool accumViscous = true,
 									 bool accumViscousBend = true, bool postProjectFixed = true,
 									 bool useApproxJacobian = true, bool useTournierJacobian = false,
 									 scalar straightHairs = 1., const Vec3& color = Vec3(0, 0, 0))
@@ -36,7 +36,6 @@ struct ElasticParameters {
 				m_color(color),
 				m_friction_alpha(friction_alpha),
 				m_friction_beta(friction_beta),
-				m_restVolumeFraction(restVolumeFraction),
 				m_postProjectFixed(postProjectFixed),
 				m_useApproxJacobian(true),
 				m_useTournierJacobian(false) {
@@ -144,9 +143,6 @@ struct ElasticParameters {
 	// friction
 	scalar m_friction_alpha;
 	scalar m_friction_beta;
-
-	// pore property
-	scalar m_restVolumeFraction;
 
 	// Dependencies
 	mutable PhysicalRadius m_physicalRadius;
