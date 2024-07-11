@@ -1,20 +1,20 @@
 
-
-
 #include "HoudiniMain.h"
 #include <unordered_set>
 
 
-// 1 指针好像有点问题 几个智能指针
-// 2. group怎么使用的
-// TODO: get vdb
+namespace FIRSTFRAME {
+	static bool hou_initialized = false;
 
-namespace MPMCOD {
-    std::shared_ptr<SIMManager> m_manager;
-    std::shared_ptr<SIMCore> m_core;
-	std::shared_ptr<SceneStepper> m_stepper;
-	std::shared_ptr<SIMInfo> m_siminfo;
-}
+	static const scalar dt = 0.001;
+	static const scalar criterion = 1e-6;
+	static const int maxiters = 100;
+	static const scalar bucket_size = 2.0; // unit: cm
+	static const int num_cells = 4;
+	static const int kernel_order = 2;
+
+	static std::shared_ptr<ParticleSimulation> execsim;
+};
 
 const SIM_DopDescription* GAS_MPM_CODIMENSIONAL::getDopDescription() {
 	static PRM_Template templateList[] = {
@@ -34,14 +34,13 @@ const SIM_DopDescription* GAS_MPM_CODIMENSIONAL::getDopDescription() {
 	return &dopDescription;
 }
 
-GAS_MPM_CODIMENSIONAL::GAS_MPM_CODIMENSIONAL(const SIM_DataFactory* factory) : BaseClass(factory) {}
+GAS_MPM_CODIMENSIONAL::GAS_MPM_CODIMENSIONAL(const SIM_DataFactory* factory) : BaseClass(factory) { }
 
-GAS_MPM_CODIMENSIONAL::~GAS_MPM_CODIMENSIONAL() {
-	MPMCOD::m_manager.reset();
-	MPMCOD::m_core.reset();
-	MPMCOD::m_stepper.reset();
-	MPMCOD::m_siminfo.reset();
+GAS_MPM_CODIMENSIONAL::~GAS_MPM_CODIMENSIONAL() { 
+	FIRSTFRAME::hou_initialized = false;
+	FIRSTFRAME::execsim.reset();
 }
+
 
 bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 											SIM_Object* object,
@@ -58,39 +57,55 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	const GU_Detail *gdp = readlock.getGdp();
 	CHECK_ERROR_SOLVER(!gdp->isEmpty(), "readBuffer Geometry is empty");
 
-	if (!MPMCOD::m_manager) {
+	if (!FIRSTFRAME::hou_initialized) {
 
-		omp_set_num_threads(1); // set openmp number
+		std::cout << "hou_initialized~~~~~~~~~" << std::endl;
 
-		MPMCOD::m_manager = std::make_shared<SIMManager>();		
+		Eigen::initParallel();
+		Eigen::setNbThreads(std::thread::hardware_concurrency());
+		omp_set_num_threads(16);
+		srand(0x0108170F);
 
-		transferPointAttribTOEigen(geo, gdp);
-		loadSIMInfos();
+		auto manager = std::make_shared<SIMManager>(); 
+		std::shared_ptr<SceneStepper> scenestepper = nullptr;
+		scenestepper = std::make_shared<LinearizedImplicitEuler>(FIRSTFRAME::criterion, FIRSTFRAME::maxiters);
+		CHECK_ERROR_SOLVER(scenestepper != nullptr, "Failed to create scene stepper");
 
-		MPMCOD::m_manager->resizeGroups(1); // TODO: change groups meaning
-		MPMCOD::m_manager->updateRestPos();
-		MPMCOD::m_manager->initGroupPos();
+		loadSIMInfos(manager);
 
-		transferFaceAttribTOEigen(geo, gdp);
+		transferPointAttribTOEigen(geo, gdp, manager);
 
-		MPMCOD::m_manager->initGaussSystem();
-		MPMCOD::m_manager->updateParticleBoundingBox();
-		MPMCOD::m_manager->rebucketizeParticles();
-		MPMCOD::m_manager->resampleNodes();
-		MPMCOD::m_manager->computeWeights(0.0);
-		MPMCOD::m_manager->updatePlasticity(0.0);
-		MPMCOD::m_manager->computedEdFe();
+		loadVDBCollisions(object, manager); // load VDB objects
+
+		int maxgroup = 0;
+		manager->resizeGroups(maxgroup + 1);
+		manager->updateRestPos();
+		manager->initGroupPos();
+
+		transferFaceAttribTOEigen(geo, gdp, manager); // load faces
+
+		manager->initGaussSystem();
+		manager->updateParticleBoundingBox();
+		manager->rebucketizeParticles();
+		manager->resampleNodes();
+		manager->computeWeights(0.0);
+		manager->updatePlasticity(0.0);
+		manager->computedEdFe();
 		
-		MPMCOD::m_manager->updateSolidPhi(); // TODO: change inside
-		MPMCOD::m_manager->updateSolidWeights(); // TODO: may be useless(this is for fluidsolid)
-		MPMCOD::m_manager->mapParticleNodesAPIC();
-		MPMCOD::m_manager->saveParticleVelocity();
+		// manager->updateSolidPhi(); // TODO: change inside
+		// manager->updateSolidWeights(); // TODO: may be useless(this is for fluidsolid)
+		manager->mapParticleNodesAPIC();
+		manager->saveParticleVelocity();
 
-		MPMCOD::m_manager->loadAttachForces();
-		MPMCOD::m_manager->insertForce(std::make_shared<JunctionForce>(MPMCOD::m_manager));
-		MPMCOD::m_manager->insertForce(std::make_shared<LevelSetForce>(MPMCOD::m_manager, MPMCOD::m_manager->getCellSize() * 0.25));
+		manager->loadAttachForces();
+		manager->insertForce(std::make_shared<JunctionForce>(manager));
+		manager->insertForce(std::make_shared<LevelSetForce>(manager, manager->getCellSize() * manager->getSIMInfo().levelset_thickness));
 
-		loadGravity(object, gdp);
+		loadGravity(object, manager);
+
+		FIRSTFRAME::execsim = std::make_shared<ParticleSimulation>(manager, scenestepper);
+
+		FIRSTFRAME::hou_initialized = true;
 
 	}
 
@@ -99,15 +114,10 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	///////////////////////////////////////////
 	// MPM simulation
 	///////////////////////////////////////////
-	CHECK_ERROR_SOLVER(MPMCOD::m_manager, "not initialize m_manager");
-	CHECK_ERROR_SOLVER(MPMCOD::m_stepper, "not initialize m_stepper");
-	std::cout << "info~~~~~~~~~" << MPMCOD::m_siminfo->elasto_flip_coeff << std::endl;
-	if (!MPMCOD::m_core)
-		MPMCOD::m_core = std::make_shared<SIMCore>(MPMCOD::m_manager, MPMCOD::m_stepper);
-	scalar dt = 0.001;
-	MPMCOD::m_core->stepSystem(dt);
-
-
+	CHECK_ERROR_SOLVER(FIRSTFRAME::execsim, "not initialize ParticleSimulation");
+	for (int substep = 0; substep < 10; ++substep) {
+		FIRSTFRAME::execsim->stepSystem(FIRSTFRAME::dt);
+	}
 
 
 
@@ -132,122 +142,130 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 }
 
 
-void GAS_MPM_CODIMENSIONAL::loadSIMInfos() {
+void GAS_MPM_CODIMENSIONAL::loadSIMInfos(const std::shared_ptr<SIMManager>& simmanager) {
+
+	// load SIMInfo
+	SIMInfo siminfo;
+	siminfo.viscosity = 8.9e-3;
+	siminfo.elasto_flip_asym_coeff = 1.0;
+	siminfo.elasto_flip_coeff = 0.95;
+	siminfo.elasto_advect_coeff = 1.0;
+	siminfo.bending_scheme = 2;
+	siminfo.levelset_young_modulus = 6.6e6;
+	siminfo.iteration_print_step = 0;
+	siminfo.use_twist = true;
+	siminfo.levelset_thickness = 0.25;
+	simmanager->setSIMInfo(siminfo);
+
 
 	// load bucket parameters
-	scalar bucket_size = 4.0;
-	int num_cells = 4;
-	int kernel_order = 2;
-	MPMCOD::m_manager->setBucketInfo(bucket_size, num_cells, kernel_order);
+	simmanager->setBucketInfo(
+		FIRSTFRAME::bucket_size, 
+		FIRSTFRAME::num_cells, 
+		FIRSTFRAME::kernel_order);
 
-	scalar criterion = 1e-6;
-	int maxiters = 100;
-	MPMCOD::m_stepper = std::make_shared<LinearizedImplicitEuler>(criterion, maxiters);
 
 	// load material parameters
-	scalar dt = 0.001;
-	scalar yarnradius = 0.0165;
+	scalar radius = 0.0165;
+	scalar biradius = radius;
 	scalar YoungsModulus = 6.6e5;
 	scalar poissonRatio = 0.35;
 	scalar shearModulus = YoungsModulus / ((1.0 + poissonRatio) * 2.0);
-	scalar density = 1.3; // g/cm^3
+	scalar density = 1.32;
 	scalar viscosity = 1e3;
 	scalar stretchingMultiplier = 1.0;
 	scalar collisionMultiplier = 1.0;
 	scalar attachMultiplier = 0.1;
 	scalar baseRotation = 0.0;
-	bool accumulateWithViscous = false;
-	bool accumulateViscousOnlyForBendingModes = true;
+	bool accumulateWithViscous = true;
+	bool accumulateViscousOnlyForBendingModes = false;
 	bool postProjectFixed = false;
 	bool useApproxJacobian = false;
 	bool useTournierJacobian = true;
 	scalar straightHairs = 1.;
 	Vec3 haircolor = Vec3(0, 0, 0);
+	
 	scalar friction_angle = 0;
 	friction_angle = std::max(0., std::min(90.0, friction_angle)) / 180.0 * M_PI;
 	const scalar friction_alpha = 1.6329931619 * sin(friction_angle) / (3.0 - sin(friction_angle));
 	const scalar friction_beta = tan(friction_angle);
 	VecX rad_vec(2);
-	rad_vec(0) = yarnradius;
-	rad_vec(1) = yarnradius;
-	MPMCOD::m_manager->insertElasticParameters(
+	rad_vec(0) = radius;
+	rad_vec(1) = biradius;
+	simmanager->insertElasticParameters(
 	std::make_shared<ElasticParameters>(
 		rad_vec, YoungsModulus, shearModulus, stretchingMultiplier,
 		collisionMultiplier, attachMultiplier, density, viscosity, baseRotation,
-		dt, friction_alpha, friction_beta,
+		FIRSTFRAME::dt, friction_alpha, friction_beta,
 		accumulateWithViscous, accumulateViscousOnlyForBendingModes,
 		postProjectFixed, useApproxJacobian, useTournierJacobian, straightHairs,
 		haircolor));
-
-
-	// load sim parameters
-	MPMCOD::m_siminfo = std::make_shared<SIMInfo>();
-	
-	MPMCOD::m_siminfo->viscosity = 8.9e-3;
-	MPMCOD::m_siminfo->lambda = 1.0;
-	MPMCOD::m_siminfo->elasto_flip_asym_coeff = 1.0;
-	MPMCOD::m_siminfo->elasto_flip_coeff = 0.95;
-	MPMCOD::m_siminfo->elasto_advect_coeff = 1.0;
-	MPMCOD::m_siminfo->bending_scheme = 2;
-	MPMCOD::m_siminfo->levelset_young_modulus = 6.6e6;
-	MPMCOD::m_siminfo->iteration_print_step = 0;
 
 }
 
 /////////////////////////////////////////
 // tranfer Data from Houdini to Eigen
 /////////////////////////////////////////
-void GAS_MPM_CODIMENSIONAL::transferPointAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp) {
+void GAS_MPM_CODIMENSIONAL::transferPointAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp, const std::shared_ptr<SIMManager>& simmanager) {
 
 	int numParticles = gdp->getNumPoints();
 	CHECK_ERROR(numParticles > 0, "No particles found in geometry");
-	Eigen::MatrixXd positions(numParticles, 3);
-	Eigen::MatrixXd velocities(numParticles, 3);
-	Eigen::VectorXd masses(numParticles);
-	Eigen::VectorXd radius(numParticles);
+	simmanager->resizeParticleSystem(numParticles);
 
 	GA_ROHandleV3D velHandle(gdp, GA_ATTRIB_POINT, "v");
 	GA_ROHandleD massHandle(gdp, GA_ATTRIB_POINT, "mass");
-	GA_ROHandleD radiusHandle(gdp, GA_ATTRIB_POINT, "pscale");
+	GA_ROHandleD pscaleHandle(gdp, GA_ATTRIB_POINT, "pscale");
 	CHECK_ERROR(velHandle.isValid(), "Failed to get velocity attributes");
 	CHECK_ERROR(massHandle.isValid(), "Failed to get mass attributes");
-	CHECK_ERROR(radiusHandle.isValid(), "Failed to get radius attributes");
+	CHECK_ERROR(pscaleHandle.isValid(), "Failed to get pscale attributes");
 
 	GA_Offset ptoff;
 	int idx = 0;
+	Vector3s p_pos = Vector3s::Zero();
+	Vector3s p_vel = Vector3s::Zero();
+	int p_fixed = 0;
+	scalar p_scale = 0.0;
+	scalar p_mass = 0.0;
 	GA_FOR_ALL_PTOFF(gdp, ptoff) {
 		if (idx >= numParticles) break;
 		UT_Vector3D pos3 = gdp->getPos3D(ptoff);
 		UT_Vector3D vel3 = velHandle.get(ptoff);
-		positions.row(idx) << pos3.x() * 100.0, pos3.y() * 100.0, pos3.z() * 100.0;
-		velocities.row(idx) << vel3.x() * 100.0, vel3.y() * 100.0, vel3.z() * 100.0;
-		masses(idx) = massHandle.get(ptoff) * 1000.0;
-		radius(idx) = radiusHandle.get(ptoff) * 100.0;
-		idx++; // Increment the index for the next row
+		
+		p_pos << pos3.x() * 100.0, pos3.y() * 100.0, pos3.z() * 100.0;
+		simmanager->setPosition(idx, p_pos);
+
+		p_vel << vel3.x() * 100.0, vel3.y() * 100.0, vel3.z() * 100.0;
+		simmanager->setVelocity(idx, p_vel);
+
+		p_fixed = 0;
+		simmanager->setFixed(idx, (unsigned char)(p_fixed & 0xFFU));
+		simmanager->setTwist(idx, false);
+
+		p_scale = pscaleHandle.get(ptoff) * 100.0;
+		simmanager->setRadius(idx, p_scale, p_scale);
+
+		p_mass = massHandle.get(ptoff) * 1000.0;
+		simmanager->setMass(idx, p_mass, 0.0);
+
+		simmanager->setGroup(idx, 0);
+
+		idx++;
 	}
 	CHECK_ERROR(idx == gdp->getNumPoints(), "Failed to get all points");
 
-	MPMCOD::m_manager->resizeParticleSystem(numParticles);
-	for (int i = 0; i < numParticles; ++i) {
-		MPMCOD::m_manager->setPosition(i, positions.row(i));
-		MPMCOD::m_manager->setVelocity(i, velocities.row(i));
-		MPMCOD::m_manager->setMass(i, masses(i), 0.0);
-		MPMCOD::m_manager->setRadius(i, radius(i), radius(i));
-	}
-
 }
 
-void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp) {
+void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp, const std::shared_ptr<SIMManager>& simmanager) {
 
 	int numfaces = gdp->getNumPrimitives();
 	std::vector<Vector3i> faces(numfaces);
 
 	int faceIndex = 0;
 	GA_Offset primoff;
+	Vector3i face = Vector3i::Zero();
 	GA_FOR_ALL_PRIMOFF(gdp, primoff) {
 		const GA_Primitive* prim = gdp->getPrimitive(primoff);
 		if (prim->getVertexCount() == 3) {
-			Vector3i face;
 			for (int i = 0; i < 3; ++i) {
 				GA_Offset vtxoff = prim->getVertexOffset(i);
 				GA_Offset ptoff = gdp->vertexPoint(vtxoff);
@@ -260,14 +278,14 @@ void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, c
 
 	int paramsIndex = 0;
 	std::unordered_set<int> unique_particles;
-	MPMCOD::m_manager->conservativeResizeFaces(numfaces);
+	simmanager->conservativeResizeFaces(numfaces);
 
 	for (int i = 0; i < numfaces; ++i) {
-		MPMCOD::m_manager->setFace(i, faces[i]);
-		Vector3s dx0 = MPMCOD::m_manager->getPosition(faces[i](1)) - MPMCOD::m_manager->getPosition(faces[i](0));
-		Vector3s dx1 = MPMCOD::m_manager->getPosition(faces[i](2)) - MPMCOD::m_manager->getPosition(faces[i](0));
-		MPMCOD::m_manager->setFaceRestArea(i, (dx0.cross(dx1)).norm() * 0.5);
-		MPMCOD::m_manager->setFaceToParameter(i, paramsIndex);
+		simmanager->setFace(i, faces[i]);
+		Vector3s dx0 = simmanager->getPosition(faces[i](1)) - simmanager->getPosition(faces[i](0));
+		Vector3s dx1 = simmanager->getPosition(faces[i](2)) - simmanager->getPosition(faces[i](0));
+		simmanager->setFaceRestArea(i, (dx0.cross(dx1)).norm() * 0.5);
+		simmanager->setFaceToParameter(i, paramsIndex);
 
 		unique_particles.insert(faces[i](0));
 		unique_particles.insert(faces[i](1));
@@ -275,32 +293,28 @@ void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, c
 	}
 	CHECK_ERROR(unique_particles.size() == gdp->getNumPoints(), "Failed to get all unique particles");
 
-	MPMCOD::m_manager->insertForce(std::make_shared<ThinShellForce>(MPMCOD::m_manager, faces, paramsIndex, 0));
-	const std::shared_ptr<ElasticParameters>& params = MPMCOD::m_manager->getElasticParameters(paramsIndex);
+	simmanager->insertForce(std::make_shared<ThinShellForce>(simmanager, faces, paramsIndex, 0));
+	const std::shared_ptr<ElasticParameters>& params = simmanager->getElasticParameters(paramsIndex);
 	for (int pidx : unique_particles) {
 		scalar radius_A = params->getRadiusA(0);
 		scalar radius_B = params->getRadiusB(0);
-		if (MPMCOD::m_manager->getRadius()(pidx * 2 + 0) == 0.0 || MPMCOD::m_manager->getRadius()(pidx * 2 + 1) == 0.0) {
-			MPMCOD::m_manager->setRadius(pidx, radius_A, radius_B);
+		if (simmanager->getRadius()(pidx * 2 + 0) == 0.0 || simmanager->getRadius()(pidx * 2 + 1) == 0.0) {
+			simmanager->setRadius(pidx, radius_A, radius_B);
 		}
-		scalar vol = MPMCOD::m_manager->getParticleRestArea(pidx) * (radius_A + radius_B);
-		MPMCOD::m_manager->setVolume(pidx, vol);
+		scalar vol = simmanager->getParticleRestArea(pidx) * (radius_A + radius_B);
+		simmanager->setVolume(pidx, vol);
 		std::cout << "volrightnow~~~~~~~~~~" << vol << std::endl;
 
-
-		const scalar original_mass = MPMCOD::m_manager->getM()(pidx * 4);
+		const scalar original_mass = simmanager->getM()(pidx * 4);
 		scalar mass = params->m_density * vol;
-		const scalar original_inertia = MPMCOD::m_manager->getM()(pidx * 4 + 3);
-		MPMCOD::m_manager->setMass(pidx, original_mass + mass, original_inertia);
+		const scalar original_inertia = simmanager->getM()(pidx * 4 + 3);
+		simmanager->setMass(pidx, original_mass + mass, original_inertia);
 		std::cout << "currentmass~~~~~~~~~" << original_mass + mass << std::endl;
-
 	}
 }
 
-void GAS_MPM_CODIMENSIONAL::transferDTAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp) {}
 
-
-void GAS_MPM_CODIMENSIONAL::loadGravity(SIM_Object* object, const GU_Detail *gdp) {
+void GAS_MPM_CODIMENSIONAL::loadGravity(SIM_Object* object, const std::shared_ptr<SIMManager>& simmanager) {
 	SIM_ConstDataArray gravities;
 	object->filterConstSubData(gravities, 0, SIM_DataFilterByType("SIM_ForceGravity"), SIM_FORCES_DATANAME, SIM_DataFilterNone());
 	const SIM_ForceGravity* force = SIM_DATA_CASTCONST(gravities(0), SIM_ForceGravity);
@@ -310,18 +324,21 @@ void GAS_MPM_CODIMENSIONAL::loadGravity(SIM_Object* object, const GU_Detail *gdp
 	Vector3s vec_gravityforce;
 	vec_gravityforce << gravityforce.x(), gravityforce.y(), gravityforce.z();
 	vec_gravityforce *= 100.0f;
-	MPMCOD::m_manager->insertForce(std::make_shared<SimpleGravityForce>(vec_gravityforce));
+	simmanager->insertForce(std::make_shared<SimpleGravityForce>(vec_gravityforce));
 }
+
 
 /////////////////////////////////////////
 // tranfer Data from Eigen to Houdini
 /////////////////////////////////////////
 void GAS_MPM_CODIMENSIONAL::transferPointAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp) {
-    int numParticles = gdp->getNumPoints();
-    CHECK_ERROR(MPMCOD::m_manager->getNumParticles() == numParticles, "Number of particles in geometry and MPM system do not match");
 
-    const VectorXs& position = MPMCOD::m_manager->getX();
-    const VectorXs& velocity = MPMCOD::m_manager->getV();
+	const std::shared_ptr<SIMManager>& localmanager = FIRSTFRAME::execsim->m_core->getScene();
+    int numParticles = gdp->getNumPoints();
+    CHECK_ERROR(localmanager->getNumParticles() == numParticles, "Number of particles in geometry and MPM system do not match");
+
+    const VectorXs& position = localmanager->getX();
+    const VectorXs& velocity = localmanager->getV();
 
     GA_RWHandleV3 velHandle(gdp, GA_ATTRIB_POINT, "v");
     CHECK_ERROR(velHandle.isValid(), "Failed to get velocity attribute handle");
@@ -339,6 +356,29 @@ void GAS_MPM_CODIMENSIONAL::transferPointAttribTOHoudini(SIM_GeometryCopy *geo, 
 }
 
 
-void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp) { }
+void GAS_MPM_CODIMENSIONAL::loadVDBCollisions(SIM_Object* object, const std::shared_ptr<SIMManager>& simmanager) {
 
-void GAS_MPM_CODIMENSIONAL::transferDTAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp) { }
+	SIM_Data *colliderData = object->getNamedSubData("Colliders");
+    if (!colliderData) {
+        std::cerr << "No Colliders data or incorrect data type" << std::endl;
+        return;
+    }
+
+}
+
+
+
+
+
+
+
+ParticleSimulation::ParticleSimulation(
+    const std::shared_ptr<SIMManager>& scene,
+    const std::shared_ptr<SceneStepper>& scene_stepper)
+	: m_core(std::make_shared<SIMCore>(scene, scene_stepper)) {}
+
+ParticleSimulation::~ParticleSimulation() {}
+
+void ParticleSimulation::stepSystem(const scalar& dt) {
+	m_core->stepSystem(dt);
+}

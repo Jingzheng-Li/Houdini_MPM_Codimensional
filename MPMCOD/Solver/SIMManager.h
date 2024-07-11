@@ -18,7 +18,6 @@ class AttachForce;
 
 struct SIMInfo {
 	scalar viscosity;
-	scalar lambda;
 	scalar elasto_flip_asym_coeff;
 	scalar elasto_flip_coeff;
 	scalar elasto_advect_coeff;
@@ -27,7 +26,6 @@ struct SIMInfo {
 	int iteration_print_step;
 
 	scalar levelset_thickness;
-	bool use_levelset_force;
 	bool use_twist;
 
 };
@@ -542,8 +540,6 @@ class SIMManager : public std::enable_shared_from_this<SIMManager> {
 	scalar computePhi(
 			const Vector3s& pos,
 			const std::function<bool(const std::shared_ptr<DistanceField>&)> selector = nullptr) const;
-
-	void dump_geometry(std::string filename);
 
 	int getKernelOrder() const;
 

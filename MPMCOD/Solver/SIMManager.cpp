@@ -3519,16 +3519,6 @@ void SIMManager::accumulateAngularddUdxdx(TripletXs& A, const scalar& dt, int ba
 	}
 }
 
-void SIMManager::dump_geometry(std::string filename) {
-	int s = getNumParticles();
-	std::ofstream myfile;
-	myfile.open(filename);
-	myfile << s << std::endl;
-	for (int i = 0; i < s; i++) {
-		myfile << m_x[4 * i] << " " << m_x[4 * i + 1] << " " << m_x[4 * i + 2] << std::endl;
-	}
-	myfile.close();
-}
 
 void SIMManager::stepScript(const scalar& dt, const scalar& current_time) {
 	threadutils::for_each(0, (int)m_scripts.size(), [&](int i) {

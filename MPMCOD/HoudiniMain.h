@@ -71,18 +71,16 @@ protected:
 
 protected:
 
-    void transferPointAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
-    void transferFaceAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
+    void transferPointAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp, const std::shared_ptr<SIMManager>& simmanager);
+    void transferFaceAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp, const std::shared_ptr<SIMManager>& simmanager);
     void transferHairAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
-    void transferDTAttribTOEigen(const SIM_Geometry *geo, const GU_Detail *gdp);
 
     void transferPointAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp);
-    void transferFaceAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp);
-    void transferDTAttribTOHoudini(SIM_GeometryCopy *geo, GU_Detail *gdp);
 
-    void loadSIMInfos();
-    void loadGravity(SIM_Object* object, const GU_Detail *gdp);
 
+    void loadSIMInfos(const std::shared_ptr<SIMManager>& simmanager);
+    void loadGravity(SIM_Object* object, const std::shared_ptr<SIMManager>& simmanager);
+    void loadVDBCollisions(SIM_Object* object, const std::shared_ptr<SIMManager>& simmanager);
 
 private:
 
@@ -95,3 +93,18 @@ private:
                         getDopDescription());
 
 };
+
+
+class ParticleSimulation {
+public:
+    ParticleSimulation(const std::shared_ptr<SIMManager>& manager, const std::shared_ptr<SceneStepper>& scenestepper);
+	virtual ~ParticleSimulation();
+
+	void stepSystem(const scalar& dt);
+
+public:
+	std::shared_ptr<SIMCore> m_core;
+};
+
+
+
