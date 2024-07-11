@@ -82,7 +82,7 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 		manager->updateRestPos();
 		manager->initGroupPos();
 
-		transferFaceAttribTOEigen(geo, gdp, manager); // load faces
+		transferFaceAttribTOEigen(geo, gdp, manager); // load clothes
 
 		manager->initGaussSystem();
 		manager->updateParticleBoundingBox();
@@ -92,8 +92,8 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 		manager->updatePlasticity(0.0);
 		manager->computedEdFe();
 		
-		// manager->updateSolidPhi(); // TODO: change inside
-		// manager->updateSolidWeights(); // TODO: may be useless(this is for fluidsolid)
+		manager->updateSolidPhi(); // TODO: change inside
+		manager->updateSolidWeights(); // TODO: may be useless(this is for fluidsolid)
 		manager->mapParticleNodesAPIC();
 		manager->saveParticleVelocity();
 
@@ -115,7 +115,7 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	// MPM simulation
 	///////////////////////////////////////////
 	CHECK_ERROR_SOLVER(FIRSTFRAME::execsim, "not initialize ParticleSimulation");
-	for (int substep = 0; substep < 10; ++substep) {
+	for (int substep = 0; substep < 8; ++substep) {
 		FIRSTFRAME::execsim->stepSystem(FIRSTFRAME::dt);
 	}
 
@@ -147,11 +147,11 @@ void GAS_MPM_CODIMENSIONAL::loadSIMInfos(const std::shared_ptr<SIMManager>& simm
 	// load SIMInfo
 	SIMInfo siminfo;
 	siminfo.viscosity = 8.9e-3;
-	siminfo.elasto_flip_asym_coeff = 1.0;
+	siminfo.elasto_flip_asym_coeff = 0.996;
 	siminfo.elasto_flip_coeff = 0.95;
-	siminfo.elasto_advect_coeff = 1.0;
+	siminfo.elasto_advect_coeff = 0.95;
 	siminfo.bending_scheme = 2;
-	siminfo.levelset_young_modulus = 6.6e6;
+	siminfo.levelset_young_modulus = 5e5;
 	siminfo.iteration_print_step = 0;
 	siminfo.use_twist = true;
 	siminfo.levelset_thickness = 0.25;
@@ -172,10 +172,10 @@ void GAS_MPM_CODIMENSIONAL::loadSIMInfos(const std::shared_ptr<SIMManager>& simm
 	scalar poissonRatio = 0.35;
 	scalar shearModulus = YoungsModulus / ((1.0 + poissonRatio) * 2.0);
 	scalar density = 1.32;
-	scalar viscosity = 1e3;
+	scalar viscosity = 2.78e1;
 	scalar stretchingMultiplier = 1.0;
-	scalar collisionMultiplier = 1.0;
-	scalar attachMultiplier = 0.1;
+	scalar collisionMultiplier = 0.04;
+	scalar attachMultiplier = 0.08;
 	scalar baseRotation = 0.0;
 	bool accumulateWithViscous = true;
 	bool accumulateViscousOnlyForBendingModes = false;
@@ -184,8 +184,8 @@ void GAS_MPM_CODIMENSIONAL::loadSIMInfos(const std::shared_ptr<SIMManager>& simm
 	bool useTournierJacobian = true;
 	scalar straightHairs = 1.;
 	Vec3 haircolor = Vec3(0, 0, 0);
-	
-	scalar friction_angle = 0;
+	scalar friction_angle = 30;
+
 	friction_angle = std::max(0., std::min(90.0, friction_angle)) / 180.0 * M_PI;
 	const scalar friction_alpha = 1.6329931619 * sin(friction_angle) / (3.0 - sin(friction_angle));
 	const scalar friction_beta = tan(friction_angle);
@@ -356,6 +356,7 @@ void GAS_MPM_CODIMENSIONAL::transferPointAttribTOHoudini(SIM_GeometryCopy *geo, 
 
 void GAS_MPM_CODIMENSIONAL::loadVDBCollisions(SIM_Object* object, const std::shared_ptr<SIMManager>& simmanager) {
 
+	// TODO: add VDB infos
 	SIM_ConstObjectArray affs;
 	object->getConstAffectors(affs, "SIM_RelationshipCollide");
 	for (exint afi = 0; afi < affs.entries(); ++afi) {
@@ -373,8 +374,28 @@ void GAS_MPM_CODIMENSIONAL::loadVDBCollisions(SIM_Object* object, const std::sha
 		if (!collidedatatest) {
 			std::cerr << "No collidedatatest data found in collider label!" << std::endl;
 		}
-
 	}
+
+	std::vector<std::shared_ptr<DistanceField>>& fields = simmanager->getDistanceFields();
+	DISTANCE_FIELD_USAGE dfu = DFU_SOLID;
+	DISTANCE_FIELD_TYPE bt = DFT_SPHERE;
+	int group = 0;
+	Vector3s center = Vector3s::Zero();
+	Vector3s raxis = Vector3s(0.0, 1.0, 0.0);
+	scalar rangle = 0.0;
+	bool inside = false;
+	Vector4s parameter(0, 0, 0, 0);
+	parameter(0) = 1.0;
+	int params_index = 0;
+	bool sampled = true;
+	std::vector<DF_SOURCE_DURATION> durations;
+	Vector3s eject_vel = Vector3s::Zero();
+	DF_SOURCE_DURATION dur = {0.0, 0.0, std::numeric_limits<scalar>::infinity(), eject_vel};
+	durations.push_back(dur);
+	fields.push_back(std::make_shared<DistanceFieldObject>(
+		center, parameter, bt, dfu, inside, raxis, rangle, group,
+		params_index, sampled, durations));
+
 }
 
 
