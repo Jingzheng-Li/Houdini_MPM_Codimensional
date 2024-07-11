@@ -59,6 +59,9 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	CHECK_ERROR_SOLVER(!gdp->isEmpty(), "readBuffer Geometry is empty");
 
 	if (!MPMCOD::m_manager) {
+
+		omp_set_num_threads(1); // set openmp number
+
 		MPMCOD::m_manager = std::make_shared<SIMManager>();		
 
 		transferPointAttribTOEigen(geo, gdp);
@@ -143,15 +146,16 @@ void GAS_MPM_CODIMENSIONAL::loadSIMInfos() {
 
 	// load material parameters
 	scalar dt = 0.001;
-	scalar yarnradius = 0.018;
+	scalar yarnradius = 0.0165;
 	scalar YoungsModulus = 6.6e5;
-	scalar shearModulus = 2.5e5;
+	scalar poissonRatio = 0.35;
+	scalar shearModulus = YoungsModulus / ((1.0 + poissonRatio) * 2.0);
 	scalar density = 1.3; // g/cm^3
-	scalar viscosity = 0.0;
+	scalar viscosity = 1e3;
 	scalar stretchingMultiplier = 1.0;
-	scalar collisionMultiplier = 1e-3;
-	scalar attachMultiplier = 1e-3;
-	scalar baseRotation = 0.;
+	scalar collisionMultiplier = 1.0;
+	scalar attachMultiplier = 0.1;
+	scalar baseRotation = 0.0;
 	bool accumulateWithViscous = false;
 	bool accumulateViscousOnlyForBendingModes = true;
 	bool postProjectFixed = false;
@@ -178,8 +182,7 @@ void GAS_MPM_CODIMENSIONAL::loadSIMInfos() {
 
 	// load sim parameters
 	MPMCOD::m_siminfo = std::make_shared<SIMInfo>();
-	MPMCOD::m_siminfo->use_pcr = true;
-	MPMCOD::m_siminfo->solve_solid = true;
+	
 	MPMCOD::m_siminfo->viscosity = 8.9e-3;
 	MPMCOD::m_siminfo->lambda = 1.0;
 	MPMCOD::m_siminfo->elasto_flip_asym_coeff = 1.0;
@@ -282,11 +285,14 @@ void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, c
 		}
 		scalar vol = MPMCOD::m_manager->getParticleRestArea(pidx) * (radius_A + radius_B);
 		MPMCOD::m_manager->setVolume(pidx, vol);
+		std::cout << "volrightnow~~~~~~~~~~" << vol << std::endl;
+
 
 		const scalar original_mass = MPMCOD::m_manager->getM()(pidx * 4);
 		scalar mass = params->m_density * vol;
 		const scalar original_inertia = MPMCOD::m_manager->getM()(pidx * 4 + 3);
 		MPMCOD::m_manager->setMass(pidx, original_mass + mass, original_inertia);
+		std::cout << "currentmass~~~~~~~~~" << original_mass + mass << std::endl;
 
 	}
 }
@@ -299,13 +305,13 @@ void GAS_MPM_CODIMENSIONAL::loadGravity(SIM_Object* object, const GU_Detail *gdp
 	object->filterConstSubData(gravities, 0, SIM_DataFilterByType("SIM_ForceGravity"), SIM_FORCES_DATANAME, SIM_DataFilterNone());
 	const SIM_ForceGravity* force = SIM_DATA_CASTCONST(gravities(0), SIM_ForceGravity);
 	CHECK_ERROR(force != nullptr, "Failed to get gravity force");
-	UT_Vector3 GravityForce, GravityTorque;
-	force->getForce(*object, UT_Vector3(), UT_Vector3(), UT_Vector3(), 1.0f, GravityForce, GravityTorque);
-	GravityForce *= 100.0f;
-
+	UT_Vector3 gravityforce, gravitytorque;
+	force->getForce(*object, UT_Vector3(), UT_Vector3(), UT_Vector3(), 1.0f, gravityforce, gravitytorque);
+	Vector3s vec_gravityforce;
+	vec_gravityforce << gravityforce.x(), gravityforce.y(), gravityforce.z();
+	vec_gravityforce *= 100.0f;
+	MPMCOD::m_manager->insertForce(std::make_shared<SimpleGravityForce>(vec_gravityforce));
 }
-
-
 
 /////////////////////////////////////////
 // tranfer Data from Eigen to Houdini
@@ -314,8 +320,8 @@ void GAS_MPM_CODIMENSIONAL::transferPointAttribTOHoudini(SIM_GeometryCopy *geo, 
     int numParticles = gdp->getNumPoints();
     CHECK_ERROR(MPMCOD::m_manager->getNumParticles() == numParticles, "Number of particles in geometry and MPM system do not match");
 
-    Eigen::VectorXd position = MPMCOD::m_manager->getX();
-    Eigen::VectorXd velocity = MPMCOD::m_manager->getV();
+    const VectorXs& position = MPMCOD::m_manager->getX();
+    const VectorXs& velocity = MPMCOD::m_manager->getV();
 
     GA_RWHandleV3 velHandle(gdp, GA_ATTRIB_POINT, "v");
     CHECK_ERROR(velHandle.isValid(), "Failed to get velocity attribute handle");

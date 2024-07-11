@@ -109,7 +109,7 @@ class StrandForce : public Force {
 
 	void updateStrandState();
 
-	// private: //todo need to make get/set calls for SIMManager in order to make
+	// private: //todo need to make get/set calls for simmanager in order to make
 	// this private again.
 
 	int getNumEdges() const { return (int)m_verts.size() - 1; }

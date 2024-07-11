@@ -114,16 +114,19 @@ struct ElasticParameters {
 		std::cout << "baseRotation: " << m_baseRotation.get() << std::endl;
 		std::cout << "YoungsModulus: " << m_youngsModulus.get() << std::endl;
 		std::cout << "shearModulus: " << m_shearModulus.get() << std::endl;
-		std::cout << "viscousBendingCoefficientBase: " << m_viscousBendingCoefficientBase << std::endl;
+		std::cout << "viscousBendingCoefficientBase: "
+							<< m_viscousBendingCoefficientBase << std::endl;
 		std::cout << "viscousKt: " << m_viscousKt << std::endl;
 		std::cout << "viscousKs: " << m_viscousKs << std::endl;
 		std::cout << "ks: " << m_ks.get() << std::endl;
 		std::cout << "kt: " << m_kt.get() << std::endl;
 		std::cout << "accumViscousBend: " << m_accumulateWithViscous << std::endl;
-		std::cout << "accumulateViscousOnlyForBendingModes: " << m_accumulateViscousOnlyForBendingModes << std::endl;
+		std::cout << "accumulateViscousOnlyForBendingModes: "
+							<< m_accumulateViscousOnlyForBendingModes << std::endl;
 		std::cout << "useApproxJacobian: " << m_useApproxJacobian << std::endl;
 		std::cout << "useTournierJacobian: " << m_useTournierJacobian << std::endl;
-		std::cout << "bendingMatrixBase: " << m_bendingMatrixBase.get() << std::endl;
+		std::cout << "bendingMatrixBase: " << m_bendingMatrixBase.get()
+							<< std::endl;
 		std::cout << "friction alpha" << m_friction_alpha << std::endl;
 		std::cout << "friction beta" << m_friction_beta << std::endl;
 	}

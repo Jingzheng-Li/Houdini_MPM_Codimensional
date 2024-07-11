@@ -139,9 +139,6 @@ bool LinearizedImplicitEuler::stepVelocity(SIMManager& scene, scalar dt) {
 
 	allocateNodeVectors(scene, m_node_rhs_x, m_node_rhs_y, m_node_rhs_z);
 
-	// allocateNodeVectors(scene, m_node_hdvm_x, m_node_hdvm_y, m_node_hdvm_z);
-	// allocateNodeVectors(scene, m_node_inv_mfhdvm_x, m_node_inv_mfhdvm_y, m_node_inv_mfhdvm_z);
-	allocateNodeVectors(scene, m_node_mfhdvm_hdvm_x, m_node_mfhdvm_hdvm_y, m_node_mfhdvm_hdvm_z);
 	allocateNodeVectors(scene, m_node_mshdvm_hdvm_x, m_node_mshdvm_hdvm_y, m_node_mshdvm_hdvm_z);
 	allocateNodeVectors(scene, m_node_inv_C_x, m_node_inv_C_y, m_node_inv_C_z);
 	allocateNodeVectors(scene, m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z);
@@ -149,13 +146,12 @@ bool LinearizedImplicitEuler::stepVelocity(SIMManager& scene, scalar dt) {
 
 	allocateNodeVectors(scene, m_node_damped_x, m_node_damped_y, m_node_damped_z);
 	constructNodeForce(scene, dt, m_node_rhs_x, m_node_rhs_y, m_node_rhs_z);
-	// constructHDV(scene, dt);
 	constructInvMDV(scene);
 
 	allocateNodeVectors(scene, m_node_v_plus_x, m_node_v_plus_y, m_node_v_plus_z);
 
 	// construct u_s^*
-	if (ndof_elasto > 0 && scene.getSIMInfo().solve_solid) {
+	if (ndof_elasto > 0) {
 		constructMsDVs(scene);
 
 		const std::vector<VectorXs>& node_mass_x = scene.getNodeMassX();
@@ -393,52 +389,68 @@ void LinearizedImplicitEuler::constructNodeForce(
 
 	m_angular_moment_buffer.resize(num_elasto);
 
-	if (scene.getSIMInfo().solve_solid) {
-		scene.accumulateGradU(rhs);
-		rhs *= -dt;
+	scene.accumulateGradU(rhs);
+	rhs *= -dt;
 
-		assert(!std::isnan(rhs.sum()));
+	assert(!std::isnan(rhs.sum()));
 
-		threadutils::for_each(0, num_elasto, [&](int pidx) {
-			m_angular_moment_buffer[pidx] = rhs[pidx * 4 + 3] + m[pidx * 4 + 3] * v[pidx * 4 + 3];
-		});
+	threadutils::for_each(0, num_elasto, [&](int pidx) {
+		m_angular_moment_buffer[pidx] = rhs[pidx * 4 + 3] + m[pidx * 4 + 3] * v[pidx * 4 + 3];
+	});
 
-		mapSoftParticlesToNode(scene, node_rhs_x, node_rhs_y, node_rhs_z, rhs);
-	}
+	mapSoftParticlesToNode(scene, node_rhs_x, node_rhs_y, node_rhs_z, rhs);
 
+	MatrixXs rhs_gauss(scene.getNumGausses() * 3, 3);
+	rhs_gauss.setZero();
+	scene.accumulateGaussGradU(rhs_gauss);  // force for type 3.
+	rhs_gauss *= -dt;
 
-	if (scene.getSIMInfo().solve_solid) {
-		MatrixXs rhs_gauss(scene.getNumGausses() * 3, 3);
-		rhs_gauss.setZero();
-		scene.accumulateGaussGradU(rhs_gauss);  // force for type 3.
-		rhs_gauss *= -dt;
+	// std::cout << "rhs_gauss~~~~~~~~" << scene.getNumGausses() << std::endl;
+	// std::cout << "rhsgasusfes~~~" << rhs_gauss << std::endl;
 
-		assert(!std::isnan(rhs_gauss.sum()));
-
-		mapGaussToNode(scene, node_rhs_x, node_rhs_y, node_rhs_z, rhs_gauss);
-	}
+	assert(!std::isnan(rhs_gauss.sum()));
+	mapGaussToNode(scene, node_rhs_x, node_rhs_y, node_rhs_z, rhs_gauss);
 	const Sorter& buckets = scene.getParticleBuckets();
 
 	buckets.for_each_bucket([&](int bucket_idx) {
-		if (scene.getSIMInfo().solve_solid) {
-			const VectorXs& node_masses_x = scene.getNodeMassX()[bucket_idx];
-			const VectorXs& node_masses_y = scene.getNodeMassY()[bucket_idx];
-			const VectorXs& node_masses_z = scene.getNodeMassZ()[bucket_idx];
+		const VectorXs& node_masses_x = scene.getNodeMassX()[bucket_idx];
+		const VectorXs& node_masses_y = scene.getNodeMassY()[bucket_idx];
+		const VectorXs& node_masses_z = scene.getNodeMassZ()[bucket_idx];
 
-			const VectorXs& node_vel_x = scene.getNodeVelocityX()[bucket_idx];
-			const VectorXs& node_vel_y = scene.getNodeVelocityY()[bucket_idx];
-			const VectorXs& node_vel_z = scene.getNodeVelocityZ()[bucket_idx];
+		const VectorXs& node_vel_x = scene.getNodeVelocityX()[bucket_idx];
+		const VectorXs& node_vel_y = scene.getNodeVelocityY()[bucket_idx];
+		const VectorXs& node_vel_z = scene.getNodeVelocityZ()[bucket_idx];
 
-			node_rhs_x[bucket_idx] += VectorXs(node_masses_x.array() * node_vel_x.array());
-			node_rhs_y[bucket_idx] += VectorXs(node_masses_y.array() * node_vel_y.array());
-			node_rhs_z[bucket_idx] += VectorXs(node_masses_z.array() * node_vel_z.array());
+		node_rhs_x[bucket_idx] += VectorXs(node_masses_x.array() * node_vel_x.array());
+		node_rhs_y[bucket_idx] += VectorXs(node_masses_y.array() * node_vel_y.array());
+		node_rhs_z[bucket_idx] += VectorXs(node_masses_z.array() * node_vel_z.array());
 
-			assert(!std::isnan(node_rhs_x[bucket_idx].sum()));
-			assert(!std::isnan(node_rhs_y[bucket_idx].sum()));
-			assert(!std::isnan(node_rhs_z[bucket_idx].sum()));
-		}
+		assert(!std::isnan(node_rhs_x[bucket_idx].sum()));
+		assert(!std::isnan(node_rhs_y[bucket_idx].sum()));
+		assert(!std::isnan(node_rhs_z[bucket_idx].sum()));
 
 	});
+
+
+	// for (int i = 0; i < scene.getNodeMassX().size(); i++) {
+	// 	const VectorXs& node_masses_x = scene.getNodeMassX()[i];
+	// 	const VectorXs& node_masses_y = scene.getNodeMassY()[i];
+	// 	const VectorXs& node_masses_z = scene.getNodeMassZ()[i];
+	// 	const VectorXs& node_vel_x = scene.getNodeVelocityX()[i];
+	// 	const VectorXs& node_vel_y = scene.getNodeVelocityY()[i];
+	// 	const VectorXs& node_vel_z = scene.getNodeVelocityZ()[i];
+
+	// 	for (int j = 0; j < node_masses_x.size(); j++) {
+	// 		if (node_masses_x[j] != 0)
+	// 			std::cout << j << " ~node_masses_y~ " << node_masses_x[j] << std::endl;
+	// 	}
+	// 	for (int j = 0; j < node_vel_y.size(); j++) {
+	// 		if (node_vel_y[j] != 0)
+	// 			std::cout << j << " ~node_vel_y~ " << node_vel_y[j] << std::endl;
+	// 	}
+	// }
+
+
 }
 
 
@@ -482,6 +494,8 @@ void LinearizedImplicitEuler::constructHessianPostProcess(SIMManager& scene, con
 			m_triA_sup[cell].second = G_ID_NEXT;
 		}
 	});
+
+	// prepareGroupPrecondition(scene, m_node_Cs_x, m_node_Cs_y, m_node_Cs_z, dt);
 }
 
 void LinearizedImplicitEuler::constructAngularHessianPreProcess(SIMManager& scene, const scalar& dt) {
@@ -538,7 +552,6 @@ void LinearizedImplicitEuler::constructMsDVs(SIMManager& scene) {
 		const int num_nodes = scene.getNumNodes(bucket_idx);
 
 		for (int i = 0; i < num_nodes; ++i) {
-			scalar P = m_node_mfhdvm_hdvm_x[bucket_idx][i];
 			scalar Cs = m_node_damped_x[bucket_idx][i];
 			m_node_Cs_x[bucket_idx][i] = Cs;
 			if (Cs > 1e-20) {
@@ -547,7 +560,6 @@ void LinearizedImplicitEuler::constructMsDVs(SIMManager& scene) {
 				m_node_inv_Cs_x[bucket_idx][i] = 1.0;
 			}
 
-			P = m_node_mfhdvm_hdvm_y[bucket_idx][i];
 			Cs = m_node_damped_y[bucket_idx][i];
 			m_node_Cs_y[bucket_idx][i] = Cs;
 			if (Cs > 1e-20) {
@@ -556,7 +568,6 @@ void LinearizedImplicitEuler::constructMsDVs(SIMManager& scene) {
 				m_node_inv_Cs_y[bucket_idx][i] = 1.0;
 			}
 
-			P = m_node_mfhdvm_hdvm_z[bucket_idx][i];
 			Cs = m_node_damped_z[bucket_idx][i];
 			m_node_Cs_z[bucket_idx][i] = Cs;
 			if (Cs > 1e-20) {
@@ -616,10 +627,14 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 	int ndof_elasto = scene.getNumSoftElastoParticles() * 4;
 	const Sorter& buckets = scene.getParticleBuckets();
 
+	std::cout << "ndof_elasto~~~~" << ndof_elasto << std::endl;
+
 	if (ndof_elasto == 0) return true;
 
 	scalar res_norm_0 = lengthNodeVectors(m_node_rhs_x, m_node_rhs_y, m_node_rhs_z);
 	scalar res_norm_1 = m_angular_moment_buffer.norm();
+
+	std::cout << "resnorm~~~~~~~~" << res_norm_0 << " " << res_norm_1 << std::endl;
 
 	if (res_norm_0 > m_pcg_criterion) {
 		constructHessianPreProcess(scene, dt);
@@ -649,13 +664,14 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 
 		if (res_norm < m_pcg_criterion) {
 			std::cout << "[pcr total iter: " << iter << ", res: " << res_norm << "/"
-					<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
-					<< "/" << (m_pcg_criterion * res_norm_0) << "]" << std::endl;
+						<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
+						<< "/" << (m_pcg_criterion * res_norm_0) << "]" << std::endl;
 		} else {
 			// Solve Mr=z
 			performInvLocalSolve(scene, m_node_z_x, m_node_z_y, m_node_z_z,
-					m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z,
-					m_node_r_x, m_node_r_y, m_node_r_z);
+								m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z,
+								m_node_r_x, m_node_r_y, m_node_r_z);
+
 			// p = r
 			buckets.for_each_bucket([&](int bucket_idx) {
 				m_node_p_x[bucket_idx] = m_node_r_x[bucket_idx];
@@ -683,10 +699,10 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 								m_node_p_x, m_node_p_y, m_node_p_z, m_node_q_x,
 								m_node_q_y, m_node_q_z);
 
+			// Mz=q
 			performInvLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
 								m_node_inv_Cs_x, m_node_inv_Cs_y, m_node_inv_Cs_z,
 								m_node_z_x, m_node_z_y, m_node_z_z);
-
 
 			// alpha = rho / (q, z)
 			scalar alpha = rho / dotNodeVectors(m_node_q_x, m_node_q_y, m_node_q_z, m_node_z_x, m_node_z_y, m_node_z_z);
@@ -718,11 +734,12 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 
 				// w = Ar
 				performGlobalMultiply(scene, dt, m_node_Cs_x, m_node_Cs_y, m_node_Cs_z,
-									m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x,
-									m_node_w_y, m_node_w_z);
+															m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x,
+															m_node_w_y, m_node_w_z);
 
 				// rho = (r, w)
-				rho = dotNodeVectors(m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x, m_node_w_y, m_node_w_z);
+				rho = dotNodeVectors(m_node_r_x, m_node_r_y, m_node_r_z, m_node_w_x,
+														 m_node_w_y, m_node_w_z);
 
 				beta = rho / rho_old;
 
@@ -737,10 +754,11 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 					m_node_q_z[bucket_idx] = m_node_w_z[bucket_idx] + m_node_q_z[bucket_idx] * beta;
 				});
 
-				// Mz = q
+				// Mz=q
 				performInvLocalSolve(scene, m_node_q_x, m_node_q_y, m_node_q_z,
 									m_node_inv_Cs_x, m_node_inv_Cs_y,
-									m_node_inv_Cs_z, m_node_z_x, m_node_z_y, m_node_z_z);
+									m_node_inv_Cs_z, m_node_z_x, m_node_z_y,
+									m_node_z_z);
 
 				// alpha = rho / (q, z)
 				alpha = rho / dotNodeVectors(m_node_q_x, m_node_q_y, m_node_q_z,
@@ -765,22 +783,22 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 				if (scene.getSIMInfo().iteration_print_step > 0 &&
 						iter % scene.getSIMInfo().iteration_print_step == 0)
 					std::cout << "[pcr total iter: " << iter << ", res: " << res_norm
-							<< "/" << m_pcg_criterion
-							<< ", abs. res: " << (res_norm * res_norm_0) << "/"
-							<< (m_pcg_criterion * res_norm_0)
-							<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
-							<< (rho_criterion / (res_norm_0 * res_norm_0))
-							<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-							<< std::endl;
+										<< "/" << m_pcg_criterion
+										<< ", abs. res: " << (res_norm * res_norm_0) << "/"
+										<< (m_pcg_criterion * res_norm_0)
+										<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
+										<< (rho_criterion / (res_norm_0 * res_norm_0))
+										<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+										<< std::endl;
 			}
 
 			std::cout << "[pcr total iter: " << iter << ", res: " << res_norm << "/"
-					<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
-					<< "/" << (m_pcg_criterion * res_norm_0)
-					<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
-					<< (rho_criterion / (res_norm_0 * res_norm_0))
-					<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-					<< std::endl;
+								<< m_pcg_criterion << ", abs. res: " << (res_norm * res_norm_0)
+								<< "/" << (m_pcg_criterion * res_norm_0)
+								<< ", rho: " << (rho / (res_norm_0 * res_norm_0)) << "/"
+								<< (rho_criterion / (res_norm_0 * res_norm_0))
+								<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+								<< std::endl;
 		}
 	}
 
@@ -814,9 +832,9 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 
 		if (res_norm < m_pcg_criterion) {
 			std::cout << "[angular pcr total iter: " << iter << ", res: " << res_norm
-					<< "/" << m_pcg_criterion
-					<< ", abs. res: " << (res_norm * res_norm_1) << "/"
-					<< (m_pcg_criterion * res_norm_1) << "]" << std::endl;
+								<< "/" << m_pcg_criterion
+								<< ", abs. res: " << (res_norm * res_norm_1) << "/"
+								<< (m_pcg_criterion * res_norm_1) << "]" << std::endl;
 		} else {
 			// Solve Mr=z
 			performLocalSolveTwist(scene, m_angular_z, scene.getM(), m_angular_r);
@@ -888,25 +906,26 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 				if (scene.getSIMInfo().iteration_print_step > 0 &&
 						iter % scene.getSIMInfo().iteration_print_step == 0)
 					std::cout << "[angular pcr total iter: " << iter
-							<< ", res: " << res_norm << "/" << m_pcg_criterion
-							<< ", abs. res: " << (res_norm * res_norm_1) << "/"
-							<< (m_pcg_criterion * res_norm_1)
-							<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
-							<< (rho_criterion / (res_norm_1 * res_norm_1))
-							<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-							<< std::endl;
+										<< ", res: " << res_norm << "/" << m_pcg_criterion
+										<< ", abs. res: " << (res_norm * res_norm_1) << "/"
+										<< (m_pcg_criterion * res_norm_1)
+										<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
+										<< (rho_criterion / (res_norm_1 * res_norm_1))
+										<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+										<< std::endl;
 			}
 
 			std::cout << "[angular pcr total iter: " << iter << ", res: " << res_norm
-					<< "/" << m_pcg_criterion
-					<< ", abs. res: " << (res_norm * res_norm_1) << "/"
-					<< (m_pcg_criterion * res_norm_1)
-					<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
-					<< (rho_criterion / (res_norm_1 * res_norm_1))
-					<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
-					<< std::endl;
+								<< "/" << m_pcg_criterion
+								<< ", abs. res: " << (res_norm * res_norm_1) << "/"
+								<< (m_pcg_criterion * res_norm_1)
+								<< ", rho: " << (rho / (res_norm_1 * res_norm_1)) << "/"
+								<< (rho_criterion / (res_norm_1 * res_norm_1))
+								<< ", abs. rho: " << rho << "/" << rho_criterion << "]"
+								<< std::endl;
 		}
 	}
+	
 	return true;
 }
 
@@ -914,8 +933,7 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 bool LinearizedImplicitEuler::acceptVelocity(SIMManager& scene) {
 	const Sorter& buckets = scene.getParticleBuckets();
 
-	if (scene.getSIMInfo().solve_solid &&
-			scene.getNumSoftElastoParticles() > 0) {
+	if (scene.getNumSoftElastoParticles() > 0) {
 		buckets.for_each_bucket([&](int bucket_idx) {
 			scene.getNodeVelocityX()[bucket_idx] = m_node_v_plus_x[bucket_idx];
 			scene.getNodeVelocityY()[bucket_idx] = m_node_v_plus_y[bucket_idx];
@@ -934,12 +952,8 @@ bool LinearizedImplicitEuler::acceptVelocity(SIMManager& scene) {
 
 bool LinearizedImplicitEuler::stepImplicitElasto(SIMManager& scene, scalar dt) {
 
-	if (scene.getSIMInfo().use_pcr) {
-		return stepImplicitElastoDiagonalPCR(scene, dt);
-	} else {
-		std::cerr << "WARNING: PCR not implemented yet!" << std::endl;
-		return false;
-	}
+	return stepImplicitElastoDiagonalPCR(scene, dt);
+
 }
 
 void LinearizedImplicitEuler::pushElastoVelocity() {

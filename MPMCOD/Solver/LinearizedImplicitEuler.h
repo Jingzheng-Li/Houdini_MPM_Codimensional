@@ -42,11 +42,17 @@ class LinearizedImplicitEuler : public SceneStepper {
 						std::vector<VectorXs>& out_node_vec_y,
 						std::vector<VectorXs>& out_node_vec_z);
 
+	// void prepareGroupPrecondition(const SIMManager& scene,
+	// 							const std::vector<VectorXs>& node_m_x,
+	// 							const std::vector<VectorXs>& node_m_y,
+	// 							const std::vector<VectorXs>& node_m_z,
+	// 							const scalar& dt);
+
 	void performLocalSolveTwist(const SIMManager& scene, const VectorXs& rhs,
-								const VectorXs& m, VectorXs& out);
+															const VectorXs& m, VectorXs& out);
 
 	void performLocalSolve(const SIMManager& scene, const VectorXs& rhs,
-							const VectorXs& m, VectorXs& out);
+												 const VectorXs& m, VectorXs& out);
 
 	void performInvLocalSolve(const SIMManager& scene,
 							const std::vector<VectorXs>& node_rhs_x,
@@ -202,10 +208,6 @@ class LinearizedImplicitEuler : public SceneStepper {
 	std::vector<VectorXs> m_node_damped_x;  // damped M_s
 	std::vector<VectorXs> m_node_damped_y;
 	std::vector<VectorXs> m_node_damped_z;
-
-	std::vector<VectorXs> m_node_mfhdvm_hdvm_x;  // (M_f+hDVm)^{-1}hDVm
-	std::vector<VectorXs> m_node_mfhdvm_hdvm_y;
-	std::vector<VectorXs> m_node_mfhdvm_hdvm_z;
 
 	std::vector<VectorXs> m_node_mshdvm_hdvm_x;  // (M_s+hDVm)^{-1}hDVm
 	std::vector<VectorXs> m_node_mshdvm_hdvm_y;

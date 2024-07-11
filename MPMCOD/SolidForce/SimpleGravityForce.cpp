@@ -29,6 +29,7 @@ void SimpleGravityForce::addGradEToTotal(const VectorXs& x, const VectorXs& v,
 										const VectorXs& m, 
 										VectorXs& gradE) {
 	const int num_elasto = gradE.size() / 4;
+	std::cout << "num_ealsto~~~~~" << num_elasto << " " << m_gravity << std::endl;
 	threadutils::for_each(0, num_elasto, [&](int i) {
 		gradE.segment<3>(4 * i) -= m(4 * i) * m_gravity;
 	});

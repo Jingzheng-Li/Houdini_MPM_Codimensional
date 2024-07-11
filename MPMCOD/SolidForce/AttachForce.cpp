@@ -46,8 +46,7 @@ void AttachForce::addEnergyToTotal(const VectorXs& x, const VectorXs& v,
 int AttachForce::getParticleIndex() const { return m_pidx; }
 
 void AttachForce::addGradEToTotal(const VectorXs& x, const VectorXs& v,
-								const VectorXs& m, 
-								VectorXs& gradE) {
+								const VectorXs& m, VectorXs& gradE) {
 	const Vector4s& endpoint = m_scene->getRestPos().segment<4>(m_pidx * 4);
 	// Compute the elastic component
 	gradE.segment<3>(4 * m_pidx) +=

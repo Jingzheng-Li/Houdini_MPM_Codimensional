@@ -16,13 +16,6 @@
 #include "Utils/ThreadUtils.h"
 #include "Utils/SpherePattern.h"
 
-/*!
- * Outputting parameters for debugging
- */
-std::ostream& operator<<(std::ostream& os, const SIMInfo& info) {
-	os << "viscosity: " << info.viscosity << std::endl;
-	return os;
-}
 
 /*!
  * init the Scene structure
@@ -535,6 +528,7 @@ void SIMManager::resizeParticleSystem(int num_particles) {
 	m_particle_rest_area.resize(num_particles);
 	m_particle_group.resize(num_particles);
 	m_inside.resize(num_particles);
+
 	m_B.resize(num_particles * 3, 3);
 
 	m_particle_nodes_x.resize(num_particles);
@@ -542,23 +536,24 @@ void SIMManager::resizeParticleSystem(int num_particles) {
 	m_particle_nodes_z.resize(num_particles);
 	m_particle_nodes_p.resize(num_particles);
 	m_particle_nodes_solid_phi.resize(num_particles);
+
 	m_particle_weights.resize(num_particles);
 	m_particle_weights_p.resize(num_particles);
+
 	m_is_strand_tip.resize(num_particles);
 
+	m_particle_rest_length.setZero();
+	m_particle_rest_area.setZero();
 	m_x.setZero();
 	m_v.setZero();
 	m_saved_v.setZero();
 	m_dv.setZero();
 	m_m.setZero();
-	m_vol.setZero();
-	m_rest_vol.setZero();
-	m_radius.setZero();
+	m_vol.setOnes();
+	m_rest_vol.setOnes();
+	m_radius.setOnes();
 	m_B.setZero();
 	m_inside.setZero();
-	m_particle_rest_length.setZero();
-	m_particle_rest_area.setZero();
-
 }
 
 
@@ -627,6 +622,7 @@ void SIMManager::conservativeResizeFaces(int num_faces) {
 	m_face_rest_area.conservativeResize(num_faces);
 	m_face_inv_mapping.resize(num_faces);
 	m_face_to_parameters.resize(num_faces);
+	std::cout << "numfacesss~~~" << m_faces.size() << std::endl;
 }
 
 const std::vector<int> SIMManager::getParticleGroup() const {
@@ -641,6 +637,10 @@ void SIMManager::initGaussSystem() {
 	const int num_edges = m_edges.rows();
 	const int num_triangles = m_faces.rows();
 	const int num_surfels = m_surfels.size();
+
+	std::cout << "numedges~~~~~" << num_edges << " " << num_triangles << " " << num_surfels << std::endl;
+
+
 	// sample Gauss from edges & triangles
 	const int num_system = num_edges + num_triangles + num_surfels;
 
@@ -655,6 +655,7 @@ void SIMManager::initGaussSystem() {
 	m_gauss_nodes_x.resize(num_system);
 	m_gauss_nodes_y.resize(num_system);
 	m_gauss_nodes_z.resize(num_system);
+
 	m_gauss_weights.resize(num_system);
 	m_gauss_to_parameters.resize(num_system);
 
@@ -684,9 +685,9 @@ void SIMManager::initGaussSystem() {
 		m_m_gauss(i * 4 + 3) = m_vol_gauss(i) * getGaussDensity(i) * 0.5 * g_radius_A * g_radius_B;
 
 		m_radius_gauss(i * 2 + 0) = sqrt((m_radius(e(0) * 2 + 0) * m_radius(e(0) * 2 + 0) +
-						m_radius(e(1) * 2 + 0) * m_radius(e(1)) * 2 + 0) * 0.5);
+							m_radius(e(1) * 2 + 0) * m_radius(e(1)) * 2 + 0) * 0.5);
 		m_radius_gauss(i * 2 + 1) = sqrt((m_radius(e(0) * 2 + 1) * m_radius(e(0) * 2 + 1) +
-						m_radius(e(1) * 2 + 1) * m_radius(e(1)) * 2 + 1) * 0.5);
+							m_radius(e(1) * 2 + 1) * m_radius(e(1)) * 2 + 1) * 0.5);
 
 	});
 
@@ -741,6 +742,10 @@ void SIMManager::initGaussSystem() {
 		Vector3s tangent = (m_x.segment<3>(e(1) * 4) - m_x.segment<3>(e(0) * 4));
 		Vector3s normal = findNormal(tangent.normalized());
 		Vector3s binorm = tangent.cross(normal).normalized();
+
+		// warning: this is a hack!!
+		// binorm = Vector3s(0, 0, 1);
+		// normal = binorm.cross(tangent).normalized();
 
 		Matrix3s m_D;
 		m_D.block<3, 1>(0, 0) = tangent;
@@ -931,6 +936,9 @@ void SIMManager::updateParticleBoundingBox() {
 	const scalar dx = m_bucket_size * 2.0;
 	m_bbx_min = Vector3s(floor(bbmin(0) / dx) * dx, floor(bbmin(1) / dx) * dx, floor(bbmin(2) / dx) * dx);
 	m_bbx_max = Vector3s(ceil(bbmax(0) / dx) * dx, ceil(bbmax(1) / dx) * dx, ceil(bbmax(2) / dx) * dx);
+
+	std::cout << "mbbxminmax~~~~~~~~~~" << m_bucket_size << " " << m_bbx_min << " " << m_bbx_max << std::endl;
+
 }
 
 void SIMManager::setBucketInfo(const scalar& bucket_size, int num_nodes, int kernel_order) {
@@ -1008,6 +1016,8 @@ void SIMManager::rebucketizeParticles() {
 	});
 
 	const int total_buckets = m_particle_buckets.size();
+
+	std::cout << "total_buckkets~~~~~~~~" << total_buckets << std::endl; 
 
 	m_bucket_activated.assign(total_buckets, 0U);
 }
@@ -1251,6 +1261,7 @@ void SIMManager::updateParticleWeights(scalar dt, int start, int end) {
 			weights(nidx, 2) = w;
 		}
 	});
+
 }
 
 /*!
@@ -1307,6 +1318,10 @@ void SIMManager::updateGaussWeights(scalar dt) {
 			weights(nidx, 2) = w;
 		}
 	});
+
+	// for (int i = 0; i < num_gauss; i++) {
+	// 	std::cout << "gausweights" << m_gauss_weights[i] << std::endl;
+	// }
 }
 
 void SIMManager::computeWeights(scalar dt) {
@@ -1419,7 +1434,6 @@ void SIMManager::buildNodeParticlePairs() {
 			},
 			3);
 }
-
 
 scalar SIMManager::interpolateValue(const Vector3s& pos,
 								const std::vector<VectorXs>& phi,
@@ -1715,7 +1729,7 @@ const std::vector<VectorXs>& SIMManager::getNodeSolidVelZ() const {
 	return m_node_solid_vel_z;
 }
 
-void SIMManager::setSIMInfo(const SIMInfo& info) { m_siminfo = info; }
+void SIMManager::setSIMInfo(const SIMInfo& info) { m_sim_info = info; }
 
 
 scalar SIMManager::getMaxVelocity() const {
@@ -2160,6 +2174,9 @@ void SIMManager::postAllocateNodes() {
 			m_node_solid_vel_z[bucket_idx].resize(num_nodes);
 
 	});
+
+	std::cout << "solidsize~~~~~~" << m_node_solid_vel_x.size() << " " << m_node_vel_x.size() << " " << m_node_mass_x.size() << std::endl; 
+
 }
 
 /*!
@@ -2171,6 +2188,9 @@ void SIMManager::resampleNodes() {
 	auto particle_node_criteria = [this](int pidx) -> bool {
 		return isSoft(pidx);
 	};
+
+	std::cout << "resamplenodes size~~~~~~~~" << m_particle_buckets.ni << " " << m_x.size() << " " << m_particle_nodes_x.size() << std::endl;
+
 
 	findNodes(m_particle_buckets, m_x, m_particle_nodes_x,
 						Vector3s(0.0, 0.5, 0.5), particle_node_criteria);
@@ -2447,6 +2467,7 @@ void SIMManager::resizeGroups(int num_group) {
 
 void SIMManager::initGroupPos() {
 	const int num_group = m_group_pos.size();
+
 	for (int i = 0; i < num_group; ++i) {
 		Vector3s center = Vector3s::Zero();
 		m_group_distance_field[i]->center(center);
@@ -2454,9 +2475,9 @@ void SIMManager::initGroupPos() {
 	}
 }
 
-SIMInfo& SIMManager::getSIMInfo() { return m_siminfo; }
+SIMInfo& SIMManager::getSIMInfo() { return m_sim_info; }
 
-const SIMInfo& SIMManager::getSIMInfo() const { return m_siminfo; }
+const SIMInfo& SIMManager::getSIMInfo() const { return m_sim_info; }
 
 scalar SIMManager::computePhi(
 		const Vector3s& pos,
@@ -2493,6 +2514,7 @@ scalar SIMManager::computePhiVel(
 	}
 
 	vel = min_vel;
+
 	return min_phi;
 }
 
@@ -2878,6 +2900,8 @@ void SIMManager::mapParticleNodesAPIC() {
 			m_node_mass_x[bucket_idx](i) = mass;
 			m_node_vol_x[bucket_idx](i) = vol_solid;
 
+			// std::cout << "nodevolandmass~~~~~" << m_node_vel_x[bucket_idx](i) << " " << m_node_mass_x[bucket_idx](i) << " " << m_node_vol_x[bucket_idx](i) << std::endl;
+
 		}
 
 		assert(!std::isnan(m_node_vel_x[bucket_idx].sum()));
@@ -3020,11 +3044,11 @@ void SIMManager::mapNodeParticlesAPIC() {
 			m_B.block<1, 3>(pidx * 3 + 2, 0) += nv * weights(i, 2) * (np - pos).transpose() * invD;
 		}
 
-		m_v.segment<4>(pidx * 4) *= m_siminfo.elasto_advect_coeff;
+		m_v.segment<4>(pidx * 4) *= m_sim_info.elasto_advect_coeff;
 		m_B.block<3, 3>(pidx * 3, 0) =
-				((m_siminfo.elasto_flip_coeff + m_siminfo.elasto_flip_asym_coeff) *
-				m_B.block<3, 3>(pidx * 3, 0) + (m_siminfo.elasto_flip_coeff -
-				m_siminfo.elasto_flip_asym_coeff) * m_B.block<3, 3>(pidx * 3, 0).transpose()) * 0.5;
+				((m_sim_info.elasto_flip_coeff + m_sim_info.elasto_flip_asym_coeff) *
+				m_B.block<3, 3>(pidx * 3, 0) + (m_sim_info.elasto_flip_coeff -
+				m_sim_info.elasto_flip_asym_coeff) * m_B.block<3, 3>(pidx * 3, 0).transpose()) * 0.5;
 
 		assert(!std::isnan(m_v.segment<3>(pidx * 4).sum()));
 	});
@@ -3120,9 +3144,12 @@ void SIMManager::setFace(int idx, const Vector3i& face) {
 									m_particle_to_face[face(1)].size(),
 									m_particle_to_face[face(2)].size());
 
-	m_particle_to_face[face(0)].push_back(std::pair<int, scalar>(idx, angle_frac[0]));
-	m_particle_to_face[face(1)].push_back(std::pair<int, scalar>(idx, angle_frac[1]));
-	m_particle_to_face[face(2)].push_back(std::pair<int, scalar>(idx, angle_frac[2]));
+	m_particle_to_face[face(0)].push_back(
+			std::pair<int, scalar>(idx, angle_frac[0]));
+	m_particle_to_face[face(1)].push_back(
+			std::pair<int, scalar>(idx, angle_frac[1]));
+	m_particle_to_face[face(2)].push_back(
+			std::pair<int, scalar>(idx, angle_frac[2]));
 }
 
 void SIMManager::setFixed(int particle, unsigned char fixed) {
@@ -3155,7 +3182,9 @@ bool SIMManager::isTwist(int particle) const {
 
 VectorXs SIMManager::getPosition(int particle) {
 	assert(particle >= 0);
+	// assert( particle < getNumParticles() );
 	assert(getDof(particle) < m_x.size());
+
 	return m_x.segment<3>(getDof(particle));
 }
 
@@ -3187,6 +3216,7 @@ void SIMManager::setEdgeRestLength(int idx, const scalar& l0) {
 
 void SIMManager::setFaceRestArea(int idx, const scalar& a0) {
 	m_face_rest_area(idx) = a0;
+
 	for (unsigned int n = 0; n < 3; n++)
 		m_particle_rest_area(m_faces(idx, n)) += a0 / 3.0;
 }
@@ -3340,27 +3370,32 @@ const std::vector<Vector3s>& SIMManager::getFaceWeights() const {
 
 void SIMManager::accumulateGradU(VectorXs& F, const VectorXs& dx, const VectorXs& dv) {
 	assert(dx.size() == dv.size());
-
 	if (F.size() == 0) return;
 
 	VectorXs combined_mass = m_m;
 
+	std::cout << "can arrive here accumulateGradU~~~~~~~: " << m_forces.size() << std::endl;
+
+
 	// Accumulate all energy gradients
-	if (dx.size() == 0)
+	if (dx.size() == 0) {
+		std::cout << "arrived at dxsize = 0" << std::endl;
 		for (std::vector<Force*>::size_type i = 0; i < m_forces.size(); ++i) {
 			if (m_forces[i]->flag() & 1)
 				m_forces[i]->addGradEToTotal(m_x, m_v, combined_mass, F);
 		}
+	}
 	else {
+		std::cout << "arrived at dxsize not 0" << std::endl;
 		VectorXs ddx = m_x + dx;
 		VectorXs ddv = m_v + dv;
-
 		for (std::vector<Force*>::size_type i = 0; i < m_forces.size(); ++i) {
 			if (m_forces[i]->flag() & 1)
 				m_forces[i]->addGradEToTotal(ddx, ddv, m_m, F);
 		}
 	}
 }
+
 
 bool SIMManager::isGaussFixed(int i) const {
 	const int num_edges = getNumEdges();
@@ -3386,21 +3421,17 @@ void SIMManager::accumulateGaussGradU(MatrixXs& F, const VectorXs& dx, const Vec
 	const int num_edges = getNumEdges();
 	threadutils::for_each(0, num_gauss, [&](int i) {
 		bool is_edge = i < num_edges;
-		bool is_cloth = !is_edge && i < getNumEdges() + getNumFaces();
 
 		scalar psi_coeff = 1.0;
-
 		const Vector3s& dFe3 = m_dFe_gauss.block<3, 1>(i * 3, 2);
 		const Vector3sT& d3t = m_d_gauss.block<3, 1>(i * 3, 2).transpose();
 		F.block<3, 3>(3 * i, 0) += psi_coeff * m_rest_vol_gauss(i) * dFe3 * d3t;  // * m_D_inv_gauss.block<3,3>(i*3,0);
 
 		if (is_edge) {
 			const Vector3s& dFe2 = m_dFe_gauss.block<3, 1>(i * 3, 1);
-
 			const Vector3sT& d2t = m_d_gauss.block<3, 1>(i * 3, 1).transpose();
 			F.block<3, 3>(3 * i, 0) += psi_coeff * m_rest_vol_gauss(i) * dFe2 * d2t;  // * m_D_inv_gauss.block<3,3>(i*3,0);
 		}
-
 	});
 }
 
