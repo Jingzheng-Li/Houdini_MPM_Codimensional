@@ -113,7 +113,6 @@ void SIMCore::stepSystem(const scalar& dt) {
 		t0 = t1;
 
 		// Implicitly Integrate the Elastic Objects
-		std::cout << "solve solid here" << std::endl;
 		m_scene_stepper->stepImplicitElasto(*m_scene, sub_dt);
 		t1 = timingutils::seconds();
 		timing_buffer[6] += t1 - t0;  // Solve solid velocity

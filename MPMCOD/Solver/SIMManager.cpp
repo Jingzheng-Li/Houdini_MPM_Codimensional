@@ -937,7 +937,6 @@ void SIMManager::updateParticleBoundingBox() {
 	m_bbx_min = Vector3s(floor(bbmin(0) / dx) * dx, floor(bbmin(1) / dx) * dx, floor(bbmin(2) / dx) * dx);
 	m_bbx_max = Vector3s(ceil(bbmax(0) / dx) * dx, ceil(bbmax(1) / dx) * dx, ceil(bbmax(2) / dx) * dx);
 
-	std::cout << "mbbxminmax~~~~~~~~~~" << m_bucket_size << " " << m_bbx_min << " " << m_bbx_max << std::endl;
 
 }
 
@@ -1016,8 +1015,6 @@ void SIMManager::rebucketizeParticles() {
 	});
 
 	const int total_buckets = m_particle_buckets.size();
-
-	std::cout << "total_buckkets~~~~~~~~" << total_buckets << std::endl; 
 
 	m_bucket_activated.assign(total_buckets, 0U);
 }
@@ -2172,11 +2169,7 @@ void SIMManager::postAllocateNodes() {
 			m_node_solid_vel_y[bucket_idx].resize(num_nodes);
 		if (m_node_solid_vel_z[bucket_idx].size() != num_nodes)
 			m_node_solid_vel_z[bucket_idx].resize(num_nodes);
-
 	});
-
-	std::cout << "solidsize~~~~~~" << m_node_solid_vel_x.size() << " " << m_node_vel_x.size() << " " << m_node_mass_x.size() << std::endl; 
-
 }
 
 /*!
@@ -2188,9 +2181,6 @@ void SIMManager::resampleNodes() {
 	auto particle_node_criteria = [this](int pidx) -> bool {
 		return isSoft(pidx);
 	};
-
-	std::cout << "resamplenodes size~~~~~~~~" << m_particle_buckets.ni << " " << m_x.size() << " " << m_particle_nodes_x.size() << std::endl;
-
 
 	findNodes(m_particle_buckets, m_x, m_particle_nodes_x,
 						Vector3s(0.0, 0.5, 0.5), particle_node_criteria);
@@ -2843,8 +2833,6 @@ void SIMManager::computeDDA() {
  */
 void SIMManager::mapParticleNodesAPIC() {
 
-	const scalar dx = getCellSize();
-	const scalar dV = dx * dx * dx;
 	//    std::cout << "FVb: " << m_fluid_v << std::endl;
 	m_particle_buckets.for_each_bucket([&](int bucket_idx) {
 		if (!m_bucket_activated[bucket_idx]) return;
@@ -2874,13 +2862,11 @@ void SIMManager::mapParticleNodesAPIC() {
 			scalar p = 0.0;
 			scalar mass = 0.0;
 			scalar vol_solid = 0.0;
-			Vector3s orientation = Vector3s::Zero();
 
 			for (auto& pair : node_particles_x) {
 				const int pidx = pair.first;
 
 				auto& weights = m_particle_weights[pidx];
-				const scalar& vol = m_rest_vol(pidx);
 				const Vector3s& m = m_m.segment<3>(pidx * 4);
 				const Vector3s& v = m_v.segment<3>(pidx * 4);
 				const Vector3s& pos = m_x.segment<3>(pidx * 4);
@@ -2900,8 +2886,6 @@ void SIMManager::mapParticleNodesAPIC() {
 			m_node_mass_x[bucket_idx](i) = mass;
 			m_node_vol_x[bucket_idx](i) = vol_solid;
 
-			// std::cout << "nodevolandmass~~~~~" << m_node_vel_x[bucket_idx](i) << " " << m_node_mass_x[bucket_idx](i) << " " << m_node_vol_x[bucket_idx](i) << std::endl;
-
 		}
 
 		assert(!std::isnan(m_node_vel_x[bucket_idx].sum()));
@@ -2913,13 +2897,11 @@ void SIMManager::mapParticleNodesAPIC() {
 			scalar p = 0.0;
 			scalar mass = 0.0;
 			scalar vol_solid = 0.0;
-			Vector3s orientation = Vector3s::Zero();
 
 			for (auto& pair : node_particles_y) {
 				const int pidx = pair.first;
 
 				auto& weights = m_particle_weights[pidx];
-				const scalar& vol = m_rest_vol(pidx);
 				const Vector3s& m = m_m.segment<3>(pidx * 4);
 				const Vector3s& v = m_v.segment<3>(pidx * 4);
 				const Vector3s& pos = m_x.segment<3>(pidx * 4);
@@ -2950,13 +2932,11 @@ void SIMManager::mapParticleNodesAPIC() {
 			scalar p = 0.0;
 			scalar mass = 0.0;
 			scalar vol_solid = 0.0;
-			Vector3s orientation = Vector3s::Zero();
 
 			for (auto& pair : node_particles_z) {
 				const int pidx = pair.first;
 
 				auto& weights = m_particle_weights[pidx];
-				const scalar& vol = m_rest_vol(pidx);
 				const Vector3s& m = m_m.segment<3>(pidx * 4);
 				const Vector3s& v = m_v.segment<3>(pidx * 4);
 				const Vector3s& pos = m_x.segment<3>(pidx * 4);
@@ -3374,19 +3354,14 @@ void SIMManager::accumulateGradU(VectorXs& F, const VectorXs& dx, const VectorXs
 
 	VectorXs combined_mass = m_m;
 
-	std::cout << "can arrive here accumulateGradU~~~~~~~: " << m_forces.size() << std::endl;
-
-
 	// Accumulate all energy gradients
 	if (dx.size() == 0) {
-		std::cout << "arrived at dxsize = 0" << std::endl;
 		for (std::vector<Force*>::size_type i = 0; i < m_forces.size(); ++i) {
 			if (m_forces[i]->flag() & 1)
 				m_forces[i]->addGradEToTotal(m_x, m_v, combined_mass, F);
 		}
 	}
 	else {
-		std::cout << "arrived at dxsize not 0" << std::endl;
 		VectorXs ddx = m_x + dx;
 		VectorXs ddv = m_v + dv;
 		for (std::vector<Force*>::size_type i = 0; i < m_forces.size(); ++i) {

@@ -627,14 +627,10 @@ bool LinearizedImplicitEuler::stepImplicitElastoDiagonalPCR(SIMManager& scene, s
 	int ndof_elasto = scene.getNumSoftElastoParticles() * 4;
 	const Sorter& buckets = scene.getParticleBuckets();
 
-	std::cout << "ndof_elasto~~~~" << ndof_elasto << std::endl;
-
 	if (ndof_elasto == 0) return true;
 
 	scalar res_norm_0 = lengthNodeVectors(m_node_rhs_x, m_node_rhs_y, m_node_rhs_z);
 	scalar res_norm_1 = m_angular_moment_buffer.norm();
-
-	std::cout << "resnorm~~~~~~~~" << res_norm_0 << " " << res_norm_1 << std::endl;
 
 	if (res_norm_0 > m_pcg_criterion) {
 		constructHessianPreProcess(scene, dt);

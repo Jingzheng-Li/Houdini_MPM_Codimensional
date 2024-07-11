@@ -17,6 +17,9 @@
 #include <SIM/SIM_ForceGravity.h>
 #include <SIM/SIM_Solver.h>
 #include <SIM/SIM_DopDescription.h>
+#include <SIM/SIM_ColliderLabel.h>
+#include <SIM/SIM_SDF.h>
+
 #include <GEO/GEO_Primitive.h>
 #include <GEO/GEO_PrimVDB.h>
 #include <UT/UT_Interrupt.h>

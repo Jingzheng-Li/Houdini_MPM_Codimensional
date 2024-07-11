@@ -303,13 +303,11 @@ void GAS_MPM_CODIMENSIONAL::transferFaceAttribTOEigen(const SIM_Geometry *geo, c
 		}
 		scalar vol = simmanager->getParticleRestArea(pidx) * (radius_A + radius_B);
 		simmanager->setVolume(pidx, vol);
-		std::cout << "volrightnow~~~~~~~~~~" << vol << std::endl;
 
 		const scalar original_mass = simmanager->getM()(pidx * 4);
 		scalar mass = params->m_density * vol;
 		const scalar original_inertia = simmanager->getM()(pidx * 4 + 3);
 		simmanager->setMass(pidx, original_mass + mass, original_inertia);
-		std::cout << "currentmass~~~~~~~~~" << original_mass + mass << std::endl;
 	}
 }
 
@@ -358,12 +356,25 @@ void GAS_MPM_CODIMENSIONAL::transferPointAttribTOHoudini(SIM_GeometryCopy *geo, 
 
 void GAS_MPM_CODIMENSIONAL::loadVDBCollisions(SIM_Object* object, const std::shared_ptr<SIMManager>& simmanager) {
 
-	SIM_Data *colliderData = object->getNamedSubData("Colliders");
-    if (!colliderData) {
-        std::cerr << "No Colliders data or incorrect data type" << std::endl;
-        return;
-    }
+	SIM_ConstObjectArray affs;
+	object->getConstAffectors(affs, "SIM_RelationshipCollide");
+	for (exint afi = 0; afi < affs.entries(); ++afi) {
+		const SIM_Object* aff = affs(afi);
+		if (aff == object) continue;
+		const SIM_Data *collidedata = aff->getConstNamedSubData("Colliders");
+		if (collidedata == nullptr) continue;
+		CHECK_ERROR(collidedata->getDataType() == "SIM_ColliderLabel", "Invalid collider data type");
+		const SIM_ColliderLabel* colliderLabel = SIM_DATA_CASTCONST(collidedata, SIM_ColliderLabel);
+		CHECK_ERROR(!colliderLabel || colliderLabel->getColliderLabel() == "Volume", "Invalid collider label");
 
+        // Try to directly get the SDF data from colliderLabel
+		colliderLabel->getColliderLabel();
+		const SIM_Data* collidedatatest  = colliderLabel->getConstNamedSubData("Volume");
+		if (!collidedatatest) {
+			std::cerr << "No collidedatatest data found in collider label!" << std::endl;
+		}
+
+	}
 }
 
 
