@@ -9,7 +9,7 @@ namespace FIRSTFRAME {
 	static const scalar dt = 0.001;
 	static const scalar criterion = 1e-6;
 	static const int maxiters = 100;
-	static const scalar bucket_size = 2.0; // unit: cm
+	static const scalar bucket_size = 1.2; // unit: cm
 	static const int num_cells = 4;
 	static const int kernel_order = 2;
 
@@ -151,7 +151,7 @@ void GAS_MPM_CODIMENSIONAL::loadSIMInfos(const std::shared_ptr<SIMManager>& simm
 	siminfo.elasto_flip_coeff = 0.95;
 	siminfo.elasto_advect_coeff = 0.95;
 	siminfo.bending_scheme = 2;
-	siminfo.levelset_young_modulus = 5e5;
+	siminfo.levelset_young_modulus = 6.6e6;
 	siminfo.iteration_print_step = 0;
 	siminfo.use_twist = true;
 	siminfo.levelset_thickness = 0.25;
@@ -174,8 +174,8 @@ void GAS_MPM_CODIMENSIONAL::loadSIMInfos(const std::shared_ptr<SIMManager>& simm
 	scalar density = 1.32;
 	scalar viscosity = 2.78e1;
 	scalar stretchingMultiplier = 1.0;
-	scalar collisionMultiplier = 0.04;
-	scalar attachMultiplier = 0.08;
+	scalar collisionMultiplier = 0.2;
+	scalar attachMultiplier = 0.2;
 	scalar baseRotation = 0.0;
 	bool accumulateWithViscous = true;
 	bool accumulateViscousOnlyForBendingModes = false;
