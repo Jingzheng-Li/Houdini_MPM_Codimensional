@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
-SET(CMAKE_C_COMPILER /usr/bin/clang)
-SET(CMAKE_CXX_COMPILER /usr/bin/clang++)
+# SET(CMAKE_C_COMPILER /usr/bin/clang)
+# SET(CMAKE_CXX_COMPILER /usr/bin/clang++)
 
 project(MPM_Codimensional LANGUAGES CXX)
 

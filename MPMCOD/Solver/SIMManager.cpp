@@ -3532,6 +3532,9 @@ void SIMManager::updateSolidPhi() {
 
 			computePhiVel(getNodePosZ(bucket_idx, i), vel, solid_sel);
 			node_solid_vel_z(i) = vel(2);
+
+			if (node_phi(i) < 0.5)
+				std::cout << "i: " << i << " " << node_phi(i) << std::endl;
 		}
 	});
 

@@ -115,7 +115,7 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	// MPM simulation
 	///////////////////////////////////////////
 	CHECK_ERROR_SOLVER(FIRSTFRAME::execsim, "not initialize ParticleSimulation");
-	for (int substep = 0; substep < 8; ++substep) {
+	for (int substep = 0; substep < 41; ++substep) {
 		FIRSTFRAME::execsim->stepSystem(FIRSTFRAME::dt);
 	}
 
