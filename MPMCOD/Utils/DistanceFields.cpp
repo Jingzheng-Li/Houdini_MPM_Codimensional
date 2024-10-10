@@ -480,7 +480,10 @@ DistanceFieldObject::DistanceFieldObject(
     DISTANCE_FIELD_TYPE type_, DISTANCE_FIELD_USAGE usage_, bool inside,
     const Vector3s& raxis, const scalar& rangle, int group_, int params_index_,
     bool sampled_, const std::vector<DF_SOURCE_DURATION>& durations_,
-    const std::string& szfn, const std::string& szfn_cache)
+    const std::string& szfn, 
+    const std::string& szfn_cache,
+    const std::vector<Vector3s>& hou_verts, 
+    const std::vector<Vector3i>& hou_inds)
     : DistanceField(type_, usage_, group_, params_index_, sampled_),
       center(center_),
       parameter(parameter_),
@@ -506,7 +509,10 @@ DistanceFieldObject::DistanceFieldObject(
                                              parameter(2));
       break;
     case DFT_FILE:
-      mesh = std::make_shared<SolidMesh>(szfn, parameter(0));
+      // mesh = std::make_shared<SolidMesh>(szfn, parameter(0));
+      mesh = std::make_shared<SolidMesh>();
+      mesh->setVertices(hou_verts);
+      mesh->setIndices(hou_inds);
       process_file_mesh(szfn_cache);
       break;
     default:
@@ -656,44 +662,33 @@ void DistanceFieldObject::process_file_mesh(const std::string& szfn_cache) {
   // pre-process mesh
   Vector3s centre = mesh->getCenter();
   mesh->translate(-centre);
-
   center += centre;
 
   Vector3s bbx_min, bbx_max;
   mesh->boundingBox(bbx_min, bbx_max);
+  std::cout << "bbx_max: " << bbx_min << std::endl;
+  std::cout << "bbx_max: " << bbx_max << std::endl;
 
   const scalar dx = parameter(1);
   bbx_min -= Vector3s::Constant(dx * 3.0);
   bbx_max += Vector3s::Constant(dx * 3.0);
+  std::cout << "bbx_max: " << bbx_min << std::endl;
+  std::cout << "bbx_max: " << bbx_max << std::endl;
 
   volume_origin = bbx_min;
-
-  // check if cache exist
-  if (!szfn_cache.empty()) {
-    std::ifstream ifs(szfn_cache, std::ios::binary);
-
-    if (ifs.good()) {
-      // read from file directly
-      read_binary_array(ifs, volume);
-      ifs.close();
-      return;
-    }
-  }
 
   Vector3s extend = (bbx_max - bbx_min) / dx;
 
   int nx = (int)ceil(extend(0));
   int ny = (int)ceil(extend(1));
   int nz = (int)ceil(extend(2));
+  std::cout << "nx ny nz: " << nx << " " << ny << " " << nz << std::endl;
+
+  std::cout << "indicies, vertices size: " << mesh->getIndices().size() << " " << mesh->getVertices().size() << std::endl;
 
   make_level_set3(mesh->getIndices(), mesh->getVertices(), volume_origin, dx,
-                  nx, ny, nz, volume);
+                  nx, ny, nz, volume); // build sdf local
 
-  if (!szfn_cache.empty()) {
-    std::ofstream ofs(szfn_cache, std::ios::binary);
-    write_binary_array(ofs, volume);
-    ofs.close();
-  }
 }
 
 scalar DistanceFieldObject::compute_phi_vel(const Vector3s& pos,
@@ -717,7 +712,6 @@ void DistanceFieldObject::advance(const scalar& dt) {
   } else {
     omega.setZero();
   }
-
   center = future_center;
   rot = future_rot;
 }
@@ -745,6 +739,8 @@ bool DistanceFieldObject::local_bounding_box(Vector3s& bbx_low,
       mesh->boundingBox(bbx_low, bbx_high, rot);
       bbx_low += center;
       bbx_high += center;
+      std::cout << "bbx low: " << bbx_low << std::endl;
+      std::cout << "bbx high: " << bbx_high << std::endl;
       break;
     default:
       break;

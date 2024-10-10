@@ -6,10 +6,10 @@
 namespace FIRSTFRAME {
 	static bool hou_initialized = false;
 
-	static const scalar dt = 0.001;
+	static const scalar dt = 0.0005;
 	static const scalar criterion = 1e-6;
 	static const int maxiters = 100;
-	static const scalar bucket_size = 1.2; // unit: cm
+	static const scalar bucket_size = 1.0; // unit: cm
 	static const int num_cells = 4;
 	static const int kernel_order = 2;
 
@@ -115,7 +115,7 @@ bool GAS_MPM_CODIMENSIONAL::solveGasSubclass(SIM_Engine& engine,
 	// MPM simulation
 	///////////////////////////////////////////
 	CHECK_ERROR_SOLVER(FIRSTFRAME::execsim, "not initialize ParticleSimulation");
-	for (int substep = 0; substep < 41; ++substep) {
+	for (int substep = 0; substep < 83; ++substep) {
 		FIRSTFRAME::execsim->stepSystem(FIRSTFRAME::dt);
 	}
 
@@ -356,45 +356,95 @@ void GAS_MPM_CODIMENSIONAL::transferPointAttribTOHoudini(SIM_GeometryCopy *geo, 
 
 void GAS_MPM_CODIMENSIONAL::loadVDBCollisions(SIM_Object* object, const std::shared_ptr<SIMManager>& simmanager) {
 
-	// TODO: add VDB infos
-	SIM_ConstObjectArray affs;
-	object->getConstAffectors(affs, "SIM_RelationshipCollide");
-	for (exint afi = 0; afi < affs.entries(); ++afi) {
-		const SIM_Object* aff = affs(afi);
-		if (aff == object) continue;
-		const SIM_Data *collidedata = aff->getConstNamedSubData("Colliders");
-		if (collidedata == nullptr) continue;
-		CHECK_ERROR(collidedata->getDataType() == "SIM_ColliderLabel", "Invalid collider data type");
-		const SIM_ColliderLabel* colliderLabel = SIM_DATA_CASTCONST(collidedata, SIM_ColliderLabel);
-		CHECK_ERROR(!colliderLabel || colliderLabel->getColliderLabel() == "Volume", "Invalid collider label");
 
-        // Try to directly get the SDF data from colliderLabel
-		colliderLabel->getColliderLabel();
-		const SIM_Data* collidedatatest  = colliderLabel->getConstNamedSubData("Volume");
-		if (!collidedatatest) {
-			std::cerr << "No collidedatatest data found in collider label!" << std::endl;
+	SIM_ConstObjectArray colaffectors;
+	object->getConstAffectors(colaffectors, "SIM_RelationshipCollide");
+    CHECK_ERROR(colaffectors.entries() == 2, "houdini scene static object is not correct, we only allow one static object exists");
+	
+	// colaffector(0) will be our collsion geometry
+	const SIM_Geometry* collidegeo = SIM_DATA_GETCONST(*colaffectors(0), SIM_GEOMETRY_DATANAME, SIM_Geometry);
+	CHECK_ERROR(collidegeo != nullptr, "collidegeo is nullptr right now");
+	GU_DetailHandleAutoReadLock readlock(collidegeo->getGeometry());
+	const GU_Detail *collidegdp = readlock.getGdp();
+	CHECK_ERROR(!collidegdp->isEmpty(), "not get any collision objects gdp");
+
+	std::vector<Vector3s> hou_verts;
+	std::vector<Vector3i> hou_faces;
+
+	hou_verts.resize(collidegdp->getNumPoints());
+
+	{ // obtain collision geometry points
+		GA_Offset ptoff;
+		int ptidx = 0;
+		GA_FOR_ALL_PTOFF(collidegdp, ptoff) {
+			UT_Vector3D vertpos3 = collidegdp->getPos3(ptoff);
+			// meter->centermeter and magic scale number avoid intersection with boundary
+			hou_verts[ptidx] << vertpos3.x() * 120.0, vertpos3.y() * 120.0, vertpos3.z() * 120.0;
+			ptidx++;
 		}
+		CHECK_ERROR(ptidx==collidegdp->getNumPoints(), "Failed to get all collision points");
 	}
+
+
+	{ // obtain collision geometry primitives
+		int primidx = 0;
+		GA_Offset primoff;
+		hou_faces.resize(collidegdp->getNumPrimitives());
+		GA_FOR_ALL_PRIMOFF(collidegdp, primoff) {
+			const GA_Primitive* prim = collidegdp->getPrimitive(primoff);
+			if (prim->getVertexCount() == 3) {
+				for (int i = 0; i < prim->getVertexCount(); ++i) {
+					GA_Offset vtxoff = prim->getVertexOffset(i);
+					GA_Offset ptoff = collidegdp->vertexPoint(vtxoff);
+					hou_faces[primidx](i) = static_cast<int>(collidegdp->pointIndex(ptoff));
+				}
+				primidx++;
+			} else {
+				std::cerr << "\033[1;31m" << "collision geometry only support tri right now" << "\033[0m" << std::endl;
+				return;
+			}
+		}
+		CHECK_ERROR(primidx==collidegdp->getNumPrimitives(), "Failed to get all primitives");
+	}
+
+	// std::vector<std::shared_ptr<DistanceField>>& fields = simmanager->getDistanceFields();
+	// DISTANCE_FIELD_USAGE dfu = DFU_SOLID;
+	// DISTANCE_FIELD_TYPE bt = DFT_SPHERE;
+	// int group = 0;
+	// Vector3s center = Vector3s::Zero();
+	// Vector3s raxis = Vector3s(0.0, 1.0, 0.0);
+	// scalar rangle = 0.0;
+	// bool inside = false;
+	// Vector4s parameter(0, 0, 0, 0);
+	// parameter(0) = 1.0;
+	// int params_index = 0;
+	// bool sampled = true;
+	// std::vector<DF_SOURCE_DURATION> durations;
+	// Vector3s eject_vel = Vector3s::Zero();
+	// DF_SOURCE_DURATION dur = {0.0, 0.0, std::numeric_limits<scalar>::infinity(), eject_vel};
+	// durations.push_back(dur);
+	// fields.push_back(std::make_shared<DistanceFieldObject>(
+	// 	center, parameter, bt, dfu, inside, raxis, rangle, group,
+	// 	params_index, sampled, durations));
 
 	std::vector<std::shared_ptr<DistanceField>>& fields = simmanager->getDistanceFields();
 	DISTANCE_FIELD_USAGE dfu = DFU_SOLID;
-	DISTANCE_FIELD_TYPE bt = DFT_SPHERE;
+	DISTANCE_FIELD_TYPE bt = DFT_FILE;
 	int group = 0;
 	Vector3s center = Vector3s::Zero();
 	Vector3s raxis = Vector3s(0.0, 1.0, 0.0);
 	scalar rangle = 0.0;
 	bool inside = false;
-	Vector4s parameter(0, 0, 0, 0);
-	parameter(0) = 1.0;
+	Vector4s parameter(1.0, 0.1, 0, 0); // scale dx useless1 useless2
 	int params_index = 0;
-	bool sampled = true;
+	bool sampled = false;
 	std::vector<DF_SOURCE_DURATION> durations;
 	Vector3s eject_vel = Vector3s::Zero();
 	DF_SOURCE_DURATION dur = {0.0, 0.0, std::numeric_limits<scalar>::infinity(), eject_vel};
 	durations.push_back(dur);
 	fields.push_back(std::make_shared<DistanceFieldObject>(
 		center, parameter, bt, dfu, inside, raxis, rangle, group,
-		params_index, sampled, durations));
+		params_index, sampled, durations, "", "", hou_verts, hou_faces));
 
 }
 

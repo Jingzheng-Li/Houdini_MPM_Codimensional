@@ -25,8 +25,16 @@ class SolidMesh {
   std::vector<Vector3i> indices;
 
  public:
+
   const std::vector<Vector3s>& getVertices() const { return vertices; }
   const std::vector<Vector3i>& getIndices() const { return indices; }
+
+  void setVertices(const std::vector<Vector3s>& hou_vertices) {
+    vertices = hou_vertices;
+  }
+  void setIndices(const std::vector<Vector3i>& hou_indices) {
+    indices = hou_indices;
+  }
 
   SolidMesh(){};
 

@@ -3523,21 +3523,16 @@ void SIMManager::updateSolidPhi() {
 		for (int i = 0; i < num_nodes; ++i) {
 			Vector3s vel;
 			node_phi(i) = computePhiVel(getNodePosSolidPhi(bucket_idx, i), vel, solid_sel);
-
 			computePhiVel(getNodePosX(bucket_idx, i), vel, solid_sel);
 			node_solid_vel_x(i) = vel(0);
-
 			computePhiVel(getNodePosY(bucket_idx, i), vel, solid_sel);
 			node_solid_vel_y(i) = vel(1);
-
 			computePhiVel(getNodePosZ(bucket_idx, i), vel, solid_sel);
 			node_solid_vel_z(i) = vel(2);
-
-			if (node_phi(i) < 0.5)
-				std::cout << "i: " << i << " " << node_phi(i) << std::endl;
+			// if (node_phi(i) < 0.5)
+			// 	std::cout << "i: " << i << " " << node_phi(i) << std::endl;
 		}
 	});
-
 }
 
 bool SIMManager::isBucketActivated(int bucket_index) const {

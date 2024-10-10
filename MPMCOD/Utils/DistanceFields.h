@@ -125,7 +125,10 @@ struct DistanceFieldObject : public DistanceField {
                       int group_, int params_index_, bool sampled_,
                       const std::vector<DF_SOURCE_DURATION>& durations_,
                       const std::string& szfn = "",
-                      const std::string& szfn_cache = "");
+                      const std::string& szfn_cache = "",
+                      const std::vector<Vector3s>& hou_verts = std::vector<Vector3s>(), 
+                      const std::vector<Vector3i>& hou_inds = std::vector<Vector3i>());
+                      
   virtual void advance(const scalar& dt);
   virtual void resample_mesh(const scalar& dx, VectorXs& result,
                              VectorXs& normals);
